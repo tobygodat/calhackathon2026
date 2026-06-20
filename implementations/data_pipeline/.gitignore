@@ -1,0 +1,7 @@
+# Never commit real keys
+.env
+
+__pycache__/
+*.pyc
+*.json
+!.env.example
