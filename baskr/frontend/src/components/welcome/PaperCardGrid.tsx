@@ -161,7 +161,7 @@ export default function PaperCardGrid({ entries }: { entries: DigestEntry[] }) {
                   className={`group absolute inset-0 cursor-pointer overflow-hidden rounded-[4px] border-t-[3px] bg-[#e9e9ea] shadow-[0_14px_30px_rgba(0,0,0,0.5)] outline-none transition-transform duration-200 ease-out hover:-translate-y-1 focus-visible:-translate-y-1 ${style.borderClass}`}
                 >
                   <span
-                    className={`absolute left-2 top-2 z-10 rounded-[4px] bg-bg/80 px-[7px] py-[3px] text-[10px] font-bold tracking-[0.04em] backdrop-blur ${style.labelClass}`}
+                    className={`absolute left-2 top-2 z-10 rounded-[4px] px-[7px] py-[3px] text-[10px] font-bold tracking-[0.04em] text-white ${style.dotClass}`}
                   >
                     {entry.classification.label}
                   </span>
@@ -216,10 +216,14 @@ export default function PaperCardGrid({ entries }: { entries: DigestEntry[] }) {
           return (
             <div
               key={`label-${paperKey(entry)}`}
-              className={`baskr-rise text-center font-sans text-[13px] font-semibold leading-[1.35] ${style.labelClass}`}
+              className="baskr-rise text-center"
               style={{ animationDelay: `${captionDelay}ms` }}
             >
-              {style.category}
+              <span
+                className={`inline-block rounded-[5px] px-2.5 py-1 font-sans text-[13px] font-semibold leading-[1.35] text-white ${style.dotClass}`}
+              >
+                {style.category}
+              </span>
             </div>
           );
         })}
