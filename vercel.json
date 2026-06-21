@@ -1,6 +1,16 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "npm --prefix dev-ui ci",
-  "buildCommand": "npm --prefix dev-ui run build",
-  "outputDirectory": "dev-ui/dist"
+  "installCommand": "npm --prefix baskr/frontend ci",
+  "buildCommand": "npm --prefix baskr/frontend run build",
+  "outputDirectory": "baskr/frontend/dist",
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://calhackathon2026.onrender.com/api/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
 }
