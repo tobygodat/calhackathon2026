@@ -9,20 +9,14 @@
   }
 }
 
-/* Search pill expand — handoff §"Search pill expand".
-   Width eases over .4s; colours over .2s. Icon stays pinned left via
-   justify-content:flex-start so it doesn't drift as the pill grows. */
+/* Search pill — now spans the centre column of the nav (width is driven by the
+   grid, not a fixed value). Colours ease on hover/focus; the icon stays pinned
+   left via justify-content:flex-start. */
 .search-pill {
-  width: 100px;
   transition:
-    width 0.4s cubic-bezier(0.4, 0, 0.2, 1),
     background-color 0.2s,
     border-color 0.2s,
     color 0.2s;
-}
-.search-pill:hover,
-.search-pill:focus-within {
-  width: 300px;
 }
 
 /* Lab Context main-panel scrollbar — handoff §"Main Panel". */

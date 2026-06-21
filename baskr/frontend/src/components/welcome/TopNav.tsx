@@ -5,10 +5,17 @@
 // active-query search (#/search?q=…). `active` highlights the current page.
 import { useState } from "react";
 
-const linkClass =
-  "font-sans text-[14px] tracking-[0.01em] text-muted-text no-underline transition-colors duration-200 hover:text-primary-text";
-const activeLinkClass =
-  "font-sans text-[14px] tracking-[0.01em] text-primary-text no-underline transition-colors duration-200 hover:text-primary-text";
+// One cell of the right-side segmented nav group. `active` fills the cell to
+// mark the current page; `divider` adds the right-hand separator between cells.
+function navCellClass(active: boolean, divider: boolean): string {
+  return [
+    "px-[18px] py-2 font-sans text-[14px] tracking-[0.01em] no-underline transition-colors duration-200",
+    divider ? "border-r border-white/15" : "",
+    active
+      ? "bg-white/[0.08] text-primary-text"
+      : "text-muted-text hover:bg-white/[0.05] hover:text-primary-text",
+  ].join(" ");
+}
 
 // Current ?q= so the search box stays filled while on the results route.
 function currentQuery(): string {
@@ -33,34 +40,32 @@ export default function TopNav({ active }: TopNavProps) {
   };
 
   return (
-    <nav className="grid h-14 flex-shrink-0 grid-cols-[1fr_auto_1fr] items-center border-b border-divider bg-bg px-6">
+    <nav className="grid h-14 flex-shrink-0 grid-cols-[auto_1fr_auto] items-center gap-8 border-b border-divider bg-bg px-6">
       <div className="flex items-center justify-self-start">
-        {/* Wordmark doubles as the home link (replaces the old top-right house). */}
+        {/* Wordmark doubles as the home link (replaces the old top-right house).
+            Nudged right off the edge so it doesn't sit flush against the border. */}
         <a
           href="#/"
           aria-label="Baskr home"
-          className="mr-7 flex items-center gap-2 no-underline"
+          className="ml-2 flex items-center gap-2 no-underline"
         >
-          <span className="flex h-5 w-5 items-center justify-center rounded-[6px] bg-primary-text text-[12px] font-extrabold leading-none text-bg">
-            b
-          </span>
+          <img
+            src="/shark-logo-white.png"
+            alt=""
+            aria-hidden="true"
+            className="h-[22px] w-auto"
+          />
           <span className="font-sans text-[16px] font-bold tracking-[-0.01em] text-primary-text">
             baskr
           </span>
         </a>
-        <a
-          href="#/flagged"
-          className={`${active === "flagged" ? activeLinkClass : linkClass} ml-7`}
-        >
-          Flagged Papers
-        </a>
       </div>
 
-      <div className="flex items-center justify-self-center">
+      <div className="flex items-center justify-self-stretch">
         <form
           onSubmit={handleSubmit}
           role="search"
-          className="search-pill flex items-center justify-start gap-2 overflow-hidden rounded-[20px] border border-white/20 bg-transparent py-1.5 pl-[14px] pr-3 font-sans text-[14px] tracking-[0.01em] text-secondary-text focus-within:border-white/40 focus-within:bg-white/[0.06] hover:border-white/40 hover:bg-white/[0.06]"
+          className="search-pill mx-auto flex w-full max-w-[760px] items-center justify-start gap-2 overflow-hidden rounded-[20px] border border-white/20 bg-transparent py-2 pl-[16px] pr-3 font-sans text-[14px] tracking-[0.01em] text-secondary-text focus-within:border-white/40 focus-within:bg-white/[0.06] hover:border-white/40 hover:bg-white/[0.06]"
         >
           <svg
             width="13"
@@ -87,13 +92,21 @@ export default function TopNav({ active }: TopNavProps) {
         </form>
       </div>
 
+      {/* Segmented button group (handoff reference): Papers + Lab Context share
+          one bordered, rounded container with an internal divider. The active
+          page reads as the selected cell via a filled background. */}
       <div className="flex items-center justify-self-end">
-        <a
-          href="#/lab-context"
-          className={active === "labContext" ? activeLinkClass : linkClass}
-        >
-          Lab Context
-        </a>
+        <div className="flex items-center overflow-hidden rounded-[12px] border border-white/20 bg-white/[0.02]">
+          <a href="#/flagged" className={navCellClass(active === "flagged", true)}>
+            Papers
+          </a>
+          <a
+            href="#/lab-context"
+            className={navCellClass(active === "labContext", false)}
+          >
+            Lab Context
+          </a>
+        </div>
       </div>
     </nav>
   );
