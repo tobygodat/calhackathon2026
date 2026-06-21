@@ -1,0 +1,68 @@
+[
+  {
+    "date": "2026-06-18",
+    "paper": {
+      "source": "pubmed",
+      "source_id": "38900100",
+      "title": "High-fiber diet durably reshapes the gut microbiome only when maintained: a 24-week washout randomized controlled trial",
+      "abstract": "We conducted a 24-week fiber intervention (n=200) with a 12-week washout phase to test whether microbiome changes persist after fiber cessation. High-fiber diet (35g/day) significantly increased Faecalibacterium prausnitzii, Bifidobacterium longum, and Roseburia intestinalis abundance by week 12. Upon fiber cessation, these taxa returned to baseline within 3 weeks in 89% of participants. Diversity metrics (Shannon index) followed the same reversibility pattern. These findings confirm that dietary fiber effects on microbiome composition require sustained intake, supporting the 'diet-dependence' hypothesis of microbiome modulation.",
+      "authors": ["Dahl WJ", "Auger J", "Alyousif Z"],
+      "doi": "10.1093/ajcn/nqac2026.001",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/38900100/",
+      "journal": "American Journal of Clinical Nutrition",
+      "published": "2026-06-18",
+      "categories": ["dietary fiber", "gut microbiome", "Faecalibacterium", "Bifidobacterium", "RCT"],
+      "uid": "doi:10.1093/ajcn/nqac2026.001"
+    },
+    "classification": {
+      "label": "EXTENDS",
+      "reason": "Extends fnd_1 with human RCT evidence confirming that fiber-induced expansion of key taxa (F. prausnitzii, Roseburia) is reversible within 3 weeks of cessation, quantifying the maintenance requirement.",
+      "matched_item_id": "fnd_1",
+      "confidence": 0.93
+    }
+  },
+  {
+    "date": "2026-06-18",
+    "paper": {
+      "source": "pubmed",
+      "source_id": "38900101",
+      "title": "Secondary bile acids produced by Clostridiales activate intestinal FXR to regulate host lipid metabolism and microbiome composition",
+      "abstract": "Gut bacteria of the Clostridiales order convert primary bile acids to secondary bile acids (deoxycholic acid, lithocholic acid) that activate the farnesoid X receptor (FXR) in intestinal epithelial cells. FXR activation induces FGF15/19, which suppresses hepatic bile acid synthesis and reshapes the microbiome toward bile-tolerant taxa. In germ-free mice colonized with Clostridium scindens, FXR activation reduced hepatic triglycerides by 31% and shifted microbiome composition toward Bacteroidetes. These findings identify a bile acid-FXR-FGF15 axis linking gut microbiome metabolism to host lipid homeostasis.",
+      "authors": ["Wahlström A", "Sayin SI", "Marschall HU"],
+      "doi": "10.1016/j.cmet.2026.05.009",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/38900101/",
+      "journal": "Cell Metabolism",
+      "published": "2026-06-17",
+      "categories": ["bile acids", "FXR", "Clostridiales", "lipid metabolism", "gut-liver axis"],
+      "uid": "doi:10.1016/j.cmet.2026.05.009"
+    },
+    "classification": {
+      "label": "EXTENDS",
+      "reason": "Extends oq_2 by identifying secondary bile acids as gut-derived microbial metabolites that mediate host metabolic signaling through FXR/FGF15, adding a bile acid axis to the metabolite-host communication framework.",
+      "matched_item_id": "oq_2",
+      "confidence": 0.85
+    }
+  },
+  {
+    "date": "2026-06-18",
+    "paper": {
+      "source": "biorxiv",
+      "source_id": "2026.06.17.547001",
+      "title": "Longitudinal FMT engraftment dynamics reveal diet as the dominant force shaping post-transplant microbiome composition",
+      "abstract": "We tracked microbiome engraftment in 67 metabolic syndrome patients receiving lean donor FMT over 52 weeks. Donor-derived taxa achieved peak engraftment at week 4 but declined progressively, with 78% of patients returning to pre-FMT composition by week 24. Dietary fiber intake was the strongest predictor of sustained engraftment (β=0.68, p<0.001), explaining more variance than donor selection, delivery route, or antibiotic pre-treatment. These data confirm that diet shapes the engraftment niche and must accompany FMT for durable metabolic improvements.",
+      "authors": ["Smits LP", "Bouter KE", "Nieuwdorp M"],
+      "doi": "10.1101/2026.06.17.547001",
+      "url": "https://www.biorxiv.org/content/10.1101/2026.06.17.547001",
+      "journal": "bioRxiv",
+      "published": "2026-06-17",
+      "categories": ["FMT", "engraftment", "metabolic syndrome", "dietary fiber", "microbiome dynamics"],
+      "uid": "doi:10.1101/2026.06.17.547001"
+    },
+    "classification": {
+      "label": "EXTENDS",
+      "reason": "Extends fnd_2 with 52-week longitudinal data showing diet explains 68% of FMT engraftment variance, quantifying the mechanism by which diet shapes the engraftment niche after lean-donor FMT.",
+      "matched_item_id": "fnd_2",
+      "confidence": 0.90
+    }
+  }
+]

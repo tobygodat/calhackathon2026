@@ -1,4 +1,3 @@
-// Title, citation, LabelBadge, one-sentence reason, PubMed link (SPEC §9).
 import type { Classification, Paper } from "../types";
 import LabelBadge from "./LabelBadge";
 
@@ -8,11 +7,44 @@ interface PaperCardProps {
 }
 
 export default function PaperCard({ paper, classification }: PaperCardProps) {
-  // TODO: render title, citation, reason, and source link.
+  const firstAuthor = paper.authors[0] ?? "Unknown";
+  const etAl = paper.authors.length > 1 ? " et al." : "";
+  const year = (paper.published ?? "").slice(0, 4);
+  const venue = paper.journal ?? paper.source;
+  const citation = `${firstAuthor}${etAl}${year ? ` (${year})` : ""}. ${venue}.`;
+
   return (
-    <article className="rounded-md border border-neutral-800 p-3">
-      <LabelBadge label={classification.label} />
-      <p className="text-sm text-neutral-500">TODO: {paper.title}</p>
+    <article className="rounded-md border border-neutral-800 bg-neutral-900/40 p-3 space-y-2">
+      <div className="flex items-start justify-between gap-2">
+        <LabelBadge label={classification.label} />
+        {classification.confidence > 0 && (
+          <span className="text-xs text-neutral-500 shrink-0">
+            {Math.round(classification.confidence * 100)}% conf.
+          </span>
+        )}
+      </div>
+
+      <div>
+        {paper.url ? (
+          <a
+            href={paper.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm font-medium leading-snug text-neutral-100 hover:text-cyan-400 hover:underline"
+          >
+            {paper.title}
+          </a>
+        ) : (
+          <p className="text-sm font-medium leading-snug text-neutral-100">{paper.title}</p>
+        )}
+        <p className="mt-0.5 text-xs text-neutral-500">{citation}</p>
+      </div>
+
+      {classification.reason && (
+        <p className="text-sm leading-relaxed text-neutral-300 border-l-2 border-neutral-700 pl-2">
+          {classification.reason}
+        </p>
+      )}
     </article>
   );
 }

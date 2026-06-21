@@ -1,22 +1,42 @@
 {
   "lab_id": "gut-microbiome-demo",
   "niche": "gut_microbiome",
-  "display_name": "Demo Lab",
+  "display_name": "Sonnenburg Lab — Gut Microbiome Research",
   "items": [
     {
       "id": "oq_1",
       "kind": "open_question",
-      "text": "PLACEHOLDER — lab's primary open question. Swap for real gut-microbiome content before the demo (SPEC §3)."
+      "text": "How do dietary fiber interventions alter gut microbiome composition and function in ways that modulate systemic immune responses, particularly in autoimmune and inflammatory disease contexts?"
+    },
+    {
+      "id": "oq_2",
+      "kind": "open_question",
+      "text": "What microbial metabolites (short-chain fatty acids, secondary bile acids, tryptophan derivatives) mediate gut-brain axis communication, and how do they influence neurological disease risk and mood?"
     },
     {
       "id": "asm_1",
       "kind": "assumption",
-      "text": "PLACEHOLDER — a working assumption the lab currently holds."
+      "text": "High dietary fiber increases Bifidobacterium and Lactobacillus species, which produce butyrate and other SCFAs that strengthen the intestinal epithelial barrier and dampen pro-inflammatory cytokine signaling."
+    },
+    {
+      "id": "asm_2",
+      "kind": "assumption",
+      "text": "Loss of microbiome diversity in industrialized populations is causally linked to rising prevalence of non-communicable diseases including obesity, type 2 diabetes, and inflammatory bowel disease."
     },
     {
       "id": "fnd_1",
       "kind": "finding",
-      "text": "PLACEHOLDER — a prior finding from the lab."
+      "text": "High-fiber diets consistently increase fiber-fermenting taxa (Faecalibacterium prausnitzii, Roseburia inulinivorans) and decrease Firmicutes-to-Bacteroidetes ratio; effects wane when fiber intake is discontinued."
+    },
+    {
+      "id": "fnd_2",
+      "kind": "finding",
+      "text": "FMT from lean donors temporarily improves insulin sensitivity in metabolic syndrome patients, but effects wane within weeks without dietary changes, suggesting diet shapes the engraftment niche."
+    },
+    {
+      "id": "fnd_3",
+      "kind": "finding",
+      "text": "Akkermansia muciniphila abundance inversely correlates with metabolic syndrome markers; pasteurized Akkermansia supplementation improves metabolic parameters in human trials without requiring viable bacteria."
     }
   ]
 }
