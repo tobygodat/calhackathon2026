@@ -1,3 +1,25 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Georgia as the app-wide default font. */
+@layer base {
+  html {
+    font-family: Georgia, serif;
+  }
+}
+
+/* Search pill expand — handoff §"Search pill expand".
+   Width eases over .4s; colours over .2s. Icon stays pinned left via
+   justify-content:flex-start so it doesn't drift as the pill grows. */
+.search-pill {
+  width: 100px;
+  transition:
+    width 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.2s,
+    border-color 0.2s,
+    color 0.2s;
+}
+.search-pill:hover {
+  width: 300px;
+}
