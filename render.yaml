@@ -1,0 +1,61 @@
+# Render Blueprint (Infrastructure-as-Code) — this is the "render io file".
+# Commit this at the repo root, then in Render: New + > Blueprint > pick this repo.
+# Render reads render.yaml and provisions both services below.
+# Docs: https://render.com/docs/blueprint-spec
+#
+# Why a redis-stack private service instead of Render's managed "Key Value"?
+# Render's managed Redis has NO modules, so RediSearch/RedisVL vector search fails.
+# We run redis/redis-stack-server ourselves as a private service. (Alternatively,
+# point REDIS_URL at a Redis Cloud DB that has the Query Engine enabled and delete
+# the `baskr-redis` service below.)
+
+services:
+  # --- Redis Stack (RediSearch + RedisVL) on the private network ---
+  - type: pserv
+    name: baskr-redis
+    runtime: image
+    image:
+      url: redis/redis-stack-server:latest
+    plan: starter
+    disk:
+      name: redis-data
+      mountPath: /data
+      sizeGB: 1
+
+  # --- Baskr FastAPI backend (API + background consumer) ---
+  - type: web
+    name: baskr-backend
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      # Render injects PORT; the Dockerfile CMD binds to it. Pin it for clarity.
+      - key: PORT
+        value: "8002"
+      # Internal DNS name of the private service above, default redis-stack port.
+      - key: REDIS_URL
+        value: redis://baskr-redis:6379
+      # Secrets — set these in the Render dashboard (sync:false keeps them out of git).
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: NCBI_API_KEY
+        sync: false
+      # Iris Redis Agent Memory (optional long-term memory) — leave unset to disable.
+      - key: AGENT_MEMORY_BASE_URL
+        sync: false
+      - key: AGENT_MEMORY_STORE_ID
+        sync: false
+      - key: AGENT_MEMORY_API_KEY
+        sync: false
+      # Model / behavior knobs (override in dashboard if needed).
+      - key: REASON_MODEL
+        value: claude-sonnet-4-6
+      - key: EMBED_MODEL
+        value: text-embedding-3-small
+      - key: BASKR_LAB_ID
+        value: gut-microbiome-demo

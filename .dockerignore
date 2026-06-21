@@ -1,0 +1,26 @@
+# Keep the build context small and never bake secrets/artifacts into the image.
+**/.git
+**/.gitignore
+**/node_modules
+**/dist
+**/.venv
+**/venv
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.impeccable
+**/.cursor
+**/.playwright-mcp
+
+# Secrets — supply these at runtime via env / env_file, never in the image.
+**/.env
+**/.env.*
+!**/.env.example
+
+# Tests and docs not needed at runtime.
+**/tests
+*.md
+**/*.png
+
+# Generated at runtime.
+baskr/data/thumbnail_cache

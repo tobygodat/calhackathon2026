@@ -5,6 +5,7 @@ const STATUS_STYLES: Record<ConnectionStatus, string> = {
   degraded: "bg-amber-500/20 text-amber-400 border-amber-500/40",
   down: "bg-red-500/20 text-red-400 border-red-500/40",
   unknown: "bg-slate-500/20 text-slate-400 border-slate-500/40",
+  ready: "bg-indigo-500/20 text-indigo-300 border-indigo-500/40",
 };
 
 export function StatusBadge({ status }: { status: ConnectionStatus }) {
@@ -23,6 +24,7 @@ export function StatusDot({ status }: { status: ConnectionStatus }) {
     degraded: "bg-amber-400",
     down: "bg-red-400",
     unknown: "bg-slate-500",
+    ready: "bg-indigo-400",
   };
   return (
     <span

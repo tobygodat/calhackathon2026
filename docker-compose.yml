@@ -1,0 +1,44 @@
+# Local dev stack: redis-stack (RediSearch/RedisVL) + the Baskr backend.
+#
+#   docker compose up --build
+#   -> backend on http://localhost:8002  (health: /api/health)
+#   -> redis-stack on localhost:6379, RedisInsight on localhost:8001
+#
+# Put ANTHROPIC_API_KEY / OPENAI_API_KEY (and any Iris AGENT_MEMORY_* keys) in
+# baskr/.env — they are loaded via env_file below.
+#
+# NOTE: app/config.py rebuilds REDIS_URL from REDIS_PUBLIC_ENDPOINT + REDIS_PASSWORD
+# when both are present. If your baskr/.env has those Redis Cloud vars set, comment
+# them out for the local stack so the backend talks to the `redis` service here.
+
+services:
+  redis:
+    image: redis/redis-stack-server:latest   # plain redis has no RediSearch -> RedisVL fails
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8002"
+    environment:
+      PORT: "8002"
+      REDIS_URL: "redis://redis:6379"   # points at the redis service above
+    env_file:
+      - path: ./baskr/.env
+        required: false                 # ok if the file is missing (e.g. CI)
+    depends_on:
+      redis:
+        condition: service_healthy
+
+volumes:
+  redis-data:

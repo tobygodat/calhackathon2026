@@ -1,0 +1,22 @@
+{
+  "source": "pubmed",
+  "source_id": "90000010",
+  "title": "Mendelian-randomization analysis finds no causal effect of microbiota immaturity on child growth",
+  "abstract": "Using host genetic variants that shape gut community maturation as instruments, we performed a Mendelian-randomization study across three cohorts to test whether microbiota immaturity causally contributes to undernutrition. Genetically predicted immaturity showed no significant effect on weight-for-age or stunting, while reverse-direction tests supported growth status driving community state. The genetic evidence argues against a causal contribution of microbiota immaturity to childhood undernutrition, contradicting the prevailing causal assumption.",
+  "authors": [
+    "Synthetic A. Author",
+    "Demo B. Coauthor"
+  ],
+  "doi": "10.5555/synthetic.90000010",
+  "url": "https://example.org/paper_10_contradicts_asm1",
+  "journal": "pubmed",
+  "published": "2026-06-10",
+  "categories": [
+    "microbiome",
+    "genetics"
+  ],
+  "uid": "doi:10.5555/synthetic.90000010",
+  "expected_label": "CONTRADICTS",
+  "expected_category": "contradiction",
+  "expected_match": "asm_1"
+}

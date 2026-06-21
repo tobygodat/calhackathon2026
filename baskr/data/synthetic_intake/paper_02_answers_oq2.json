@@ -1,0 +1,22 @@
+{
+  "source": "pubmed",
+  "source_id": "90000002",
+  "title": "Chickpea and green-banana flour are the active microbiota-repairing ingredients in MDCF formulations",
+  "abstract": "Microbiome-directed complementary foods (MDCFs) repair immature gut microbiota in undernourished children, but which ingredients carry the effect has been unknown. In a four-arm randomized factorial trial we deconstructed an MDCF into its components and fed single-ingredient prototypes to children with moderate acute malnutrition. Chickpea and green-banana flour each independently expanded growth-associated taxa (Faecalibacterium prausnitzii, Prevotella copri) and lifted growth-associated plasma proteins, whereas rice and oil arms did not. The combination was additive. These results identify the specific complementary-food ingredients that most effectively repair an immature microbiota and restore growth.",
+  "authors": [
+    "Synthetic A. Author",
+    "Demo B. Coauthor"
+  ],
+  "doi": "10.5555/synthetic.90000002",
+  "url": "https://example.org/paper_02_answers_oq2",
+  "journal": "Science Translational Medicine",
+  "published": "2026-06-18",
+  "categories": [
+    "microbiome",
+    "nutrition"
+  ],
+  "uid": "doi:10.5555/synthetic.90000002",
+  "expected_label": "ANSWERS",
+  "expected_category": "question answered",
+  "expected_match": "oq_2"
+}

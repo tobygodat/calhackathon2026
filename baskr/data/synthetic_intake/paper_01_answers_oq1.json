@@ -1,0 +1,22 @@
+{
+  "source": "pubmed",
+  "source_id": "90000001",
+  "title": "Microbiota maturation causally precedes and drives postnatal weight gain in a germ-free infant-transfer model",
+  "abstract": "Whether gut microbial maturation causes healthy infant growth or merely tracks it has remained unresolved. We transplanted age-resolved fecal communities from a longitudinal infant cohort into germ-free mouse pups and applied convergent cross-mapping and time-lagged interventions to separate cause from correlation. Pups receiving chronologically mature communities gained significantly more lean mass and showed accelerated bone growth than littermates receiving immature communities sampled from the same infants weeks earlier. Sequential swap experiments demonstrate that the maturation state of the community, not host age, sets the growth trajectory. We conclude that microbiota maturation is a causal driver of postnatal growth rather than a passive correlate.",
+  "authors": [
+    "Synthetic A. Author",
+    "Demo B. Coauthor"
+  ],
+  "doi": "10.5555/synthetic.90000001",
+  "url": "https://example.org/paper_01_answers_oq1",
+  "journal": "Cell Host & Microbe",
+  "published": "2026-06-19",
+  "categories": [
+    "microbiome",
+    "development"
+  ],
+  "uid": "doi:10.5555/synthetic.90000001",
+  "expected_label": "ANSWERS",
+  "expected_category": "question answered",
+  "expected_match": "oq_1"
+}

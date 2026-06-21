@@ -7,7 +7,9 @@ import { IntakeTestPanel } from "./components/IntakeTestPanel";
 import { LabProfilePanel } from "./components/LabProfilePanel";
 import { LedgerPanel } from "./components/LedgerPanel";
 import { MetricCards } from "./components/MetricCards";
+import { PipelinePanel } from "./components/PipelinePanel";
 import { RedisSourcesPanel } from "./components/RedisSourcesPanel";
+import { ScannerScorecardPanel } from "./components/ScannerScorecardPanel";
 import { ServiceFlipGraph } from "./components/ServiceFlipGraph";
 import { StatusDot } from "./components/StatusBadge";
 import type { SystemStatus } from "./types";
@@ -87,6 +89,7 @@ export default function App() {
       <main className="space-y-8">
         {/* System overview */}
         <MetricCards metrics={offline ? null : view.metrics} />
+        <PipelinePanel metrics={offline ? null : view.metrics} />
         <ServiceFlipGraph metrics={offline ? null : view.metrics} />
         <CapabilityPanel status={offline ? null : view} />
         <ConnectionsPanel connections={view.connections} />
@@ -100,6 +103,10 @@ export default function App() {
         {/* Infrastructure + intake + ledger */}
         <RedisSourcesPanel sources={view.redisSources} />
         <IntakeTestPanel onIngested={() => setLedgerRefreshKey((k) => k + 1)} />
+
+        {/* Labeled-test scoring: how many the scanner gets right */}
+        <ScannerScorecardPanel />
+
         <LedgerPanel refreshKey={ledgerRefreshKey} />
       </main>
 

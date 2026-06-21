@@ -1,0 +1,22 @@
+{
+  "source": "biorxiv",
+  "source_id": "90000016",
+  "title": "Bile-acid remodeling is a previously unrecognized route by which repaired microbiota improve growth",
+  "abstract": "Beyond short-chain fatty acids, the mechanisms by which a repaired microbiota improves growth remain incompletely mapped. Studying children and gnotobiotic mice fed microbiome-directed food, we identify microbial bile-acid deconjugation as a distinct, previously unrecognized axis: repaired communities shifted the bile-acid pool, activating intestinal FXR signaling that tracked growth-associated plasma biomarkers. This fills a mechanistic gap left open by prior MDCF work and extends it with a new microbiota-to-host signaling route.",
+  "authors": [
+    "Synthetic A. Author",
+    "Demo B. Coauthor"
+  ],
+  "doi": "10.5555/synthetic.90000016",
+  "url": "https://example.org/paper_16_extends_gap_oq3",
+  "journal": "biorxiv",
+  "published": "2026-06-04",
+  "categories": [
+    "microbiome",
+    "metabolism"
+  ],
+  "uid": "doi:10.5555/synthetic.90000016",
+  "expected_label": "EXTENDS",
+  "expected_category": "knowledge gap filler",
+  "expected_match": "fnd_2"
+}

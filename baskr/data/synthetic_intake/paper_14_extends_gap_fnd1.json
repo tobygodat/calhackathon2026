@@ -1,0 +1,22 @@
+{
+  "source": "biorxiv",
+  "source_id": "90000014",
+  "title": "Discordant-twin microbiota also transmit intestinal immune tone, extending the metabolic transmission model",
+  "abstract": "Prior work showed discordant-twin microbiota transmit host metabolic phenotype to gnotobiotic mice. We extend that model into an unexplored dimension: immune phenotype. Recipients of obese-twin communities developed a distinct intestinal Th17/Treg balance and heightened low-grade inflammation independent of adiposity, revealing a previously uncharacterized immunological arm of microbiome transmission. This fills a gap adjacent to the established metabolic finding by showing the transmissible community also reprograms host immune signaling.",
+  "authors": [
+    "Synthetic A. Author",
+    "Demo B. Coauthor"
+  ],
+  "doi": "10.5555/synthetic.90000014",
+  "url": "https://example.org/paper_14_extends_gap_fnd1",
+  "journal": "biorxiv",
+  "published": "2026-06-06",
+  "categories": [
+    "microbiome",
+    "immunology"
+  ],
+  "uid": "doi:10.5555/synthetic.90000014",
+  "expected_label": "EXTENDS",
+  "expected_category": "knowledge gap filler",
+  "expected_match": "fnd_1"
+}

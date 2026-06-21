@@ -1,0 +1,22 @@
+{
+  "source": "pubmed",
+  "source_id": "90000018",
+  "title": "Gut microbiome alpha-synuclein aggregation signatures in elderly Parkinson's disease patients",
+  "abstract": "We profiled the fecal microbiome of 300 older adults with Parkinson's disease and matched controls and related community composition to enteric alpha-synuclein pathology and motor scores. Depletion of Prevotellaceae and enrichment of Akkermansia tracked disease severity, suggesting a gut-brain axis contribution to neurodegeneration. Although this is gut-microbiome research, it concerns adult neurodegenerative disease rather than infant growth, childhood undernutrition, or complementary-food intervention.",
+  "authors": [
+    "Synthetic A. Author",
+    "Demo B. Coauthor"
+  ],
+  "doi": "10.5555/synthetic.90000018",
+  "url": "https://example.org/paper_18_notrel_parkinsons",
+  "journal": "Movement Disorders",
+  "published": "2026-06-02",
+  "categories": [
+    "microbiome",
+    "neurology"
+  ],
+  "uid": "doi:10.5555/synthetic.90000018",
+  "expected_label": "NOT_RELEVANT",
+  "expected_category": "not relevant",
+  "expected_match": null
+}

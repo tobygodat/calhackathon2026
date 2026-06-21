@@ -27,11 +27,13 @@ const CATEGORY_META: Record<
 };
 
 // Down/degraded services sort to the top within their category so problems pop.
+// "ready" (best-effort standby) is not a fault, so it sorts down with healthy.
 const STATUS_RANK: Record<ServiceConnection["status"], number> = {
   down: 0,
   degraded: 1,
   unknown: 2,
-  healthy: 3,
+  ready: 3,
+  healthy: 4,
 };
 
 function sortConnections(connections: ServiceConnection[]): ServiceConnection[] {

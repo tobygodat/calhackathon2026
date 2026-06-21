@@ -1,0 +1,22 @@
+{
+  "source": "pubmed",
+  "source_id": "90000008",
+  "title": "MDCF-2 does not outperform standard ready-to-use supplementary food in a multi-country replication trial",
+  "abstract": "An influential trial reported that the microbiome-directed food MDCF-2 outperformed standard ready-to-use supplementary food (RUSF) on microbiota repair and growth biomarkers. In a pre-registered three-country replication (n=1,100), MDCF-2 and RUSF produced statistically indistinguishable changes in weight-for-length z-score and in the growth-associated plasma proteome, and the microbiota-repair signature did not differ between arms. The previously reported MDCF-2 advantage did not replicate, contradicting the finding that MDCF-2 is superior to RUSF.",
+  "authors": [
+    "Synthetic A. Author",
+    "Demo B. Coauthor"
+  ],
+  "doi": "10.5555/synthetic.90000008",
+  "url": "https://example.org/paper_08_contradicts_fnd2",
+  "journal": "NEJM",
+  "published": "2026-06-12",
+  "categories": [
+    "microbiome",
+    "nutrition"
+  ],
+  "uid": "doi:10.5555/synthetic.90000008",
+  "expected_label": "CONTRADICTS",
+  "expected_category": "contradiction",
+  "expected_match": "fnd_2"
+}

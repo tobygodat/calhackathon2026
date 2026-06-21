@@ -92,6 +92,15 @@ def produce_once(query: str, days: int = 1, max_per_source: int = 20,
     """
     papers = fetch_recent(query, days, max_per_source=max_per_source, settings=settings)
 
+    # Reaching a source for real data is "contact" — refresh its stable-connection
+    # window (mirrors the heartbeat scheduler). Degrades safe.
+    try:
+        from . import connections  # noqa: PLC0415
+        for source in {p.source for p in papers if p.source in connections.SOURCES}:
+            connections.record_contact(source, settings)
+    except Exception:  # noqa: BLE001
+        pass
+
     pushed: list[str] = []
     skipped_dupe = 0
     skipped_no_abstract = 0

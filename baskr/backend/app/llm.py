@@ -1,4 +1,3 @@
-# do not include in test1
 """Anthropic Claude client with JSON-enforced output (SPEC §7).
 
 Sends the system+user prompt from ``prompts.build_prompt`` and parses a strict

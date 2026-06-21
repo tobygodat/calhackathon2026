@@ -92,13 +92,41 @@ def _reset_pubmed_cache() -> None:
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
-    """Record the backend turning on/off in the service status log."""
+    """Record the backend turning on/off; run the live pipeline background workers.
+
+    On startup we launch the staggered heartbeat scheduler (keeps each source's
+    stable-connection freshness up to date) and the two-stage consumer (vector-search
+    + LLM-scan batches). Both are daemon threads that degrade safe when Redis or the
+    network is unavailable. Set ``BASKR_AUTOSTART_PIPELINE=0`` to skip them.
+    """
+    import os
+
     from .monitoring import record_backend_event
     try:
         record_backend_event("on")
     except Exception:
         pass
+
+    autostart = os.environ.get("BASKR_AUTOSTART_PIPELINE", "1").strip().lower() not in (
+        "0", "false", "no", "off",
+    )
+    if autostart:
+        try:
+            from . import connections, consumer
+            connections.start_heartbeats(SETTINGS)
+            consumer.start(SETTINGS)
+        except Exception:
+            pass
+
     yield
+
+    if autostart:
+        try:
+            from . import connections, consumer
+            connections.stop_heartbeats()
+            consumer.stop()
+        except Exception:
+            pass
     try:
         record_backend_event("off")
     except Exception:
@@ -279,6 +307,16 @@ def pipeline_search(body: dict) -> dict:
 
     papers, counts, errors = fetch_raw(query, days, max_results, SETTINGS)
 
+    # A successful fetch is "contact" with that source — it refreshes the source's
+    # stable-connection window just like a heartbeat ping would.
+    try:
+        from . import connections
+        for source, count in counts.items():
+            if count and source in connections.SOURCES:
+                connections.record_contact(source, SETTINGS)
+    except Exception:
+        pass
+
     if sources:
         papers = [p for p in papers if p.source in sources]
 
@@ -456,6 +494,123 @@ async def intake(files: list[UploadFile]) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Intake scoring test (run labeled synthetic papers through the scanner and
+# compare the predicted label to the ground-truth ``expected_label``)
+# ---------------------------------------------------------------------------
+
+# The labels the scanner can emit, in the order the scorecard displays them
+# (rows/cols of the confusion matrix).
+_SCORE_LABELS = ["ANSWERS", "CONTRADICTS", "EXTENDS", "NOT_RELEVANT"]
+
+
+def _coerce_paper(record: dict) -> PaperOut:
+    """Build a PaperOut from a (possibly ground-truth-tagged) intake record.
+
+    Unknown keys like ``expected_label`` are ignored by the model; missing
+    optional fields fall back to PaperOut defaults so a minimal record still
+    classifies.
+    """
+    return PaperOut(
+        source=str(record.get("source", "synthetic") or "synthetic"),
+        source_id=str(record.get("source_id", "") or ""),
+        title=str(record.get("title", "") or ""),
+        abstract=str(record.get("abstract", "") or ""),
+        authors=list(record.get("authors") or []),
+        doi=record.get("doi") or None,
+        url=record.get("url") or None,
+        journal=record.get("journal") or None,
+        published=record.get("published") or None,
+        categories=list(record.get("categories") or []),
+        uid=record.get("uid") or None,
+    )
+
+
+@app.post("/api/intake/test")
+async def intake_test(files: list[UploadFile]) -> dict:
+    """Run labeled papers through the real scanner and score predicted vs expected.
+
+    Accepts the same JSON shape as ``/api/intake`` (single object or array), but
+    each record is expected to carry an ``expected_label`` ground-truth field
+    (one of ANSWERS | CONTRADICTS | EXTENDS | NOT_RELEVANT) and, optionally, a
+    human ``expected_category``. Each paper is classified with the same
+    ``engine.classify_paper`` the live consumer uses; the response is a scorecard
+    the dev-UI dashboard renders.
+
+    This deliberately runs the classifier synchronously (not via the async
+    stream/consumer) so every paper — including the NOT_RELEVANT ones the
+    consumer would silently drop — gets a comparable prediction.
+    """
+    records: list[dict] = []
+    errors: dict[str, str] = {}
+    skipped = 0
+
+    for upload in files:
+        name = upload.filename or "file"
+        try:
+            data = json.loads(await upload.read())
+        except Exception as exc:  # noqa: BLE001
+            errors[name] = f"could not parse JSON: {exc}"
+            continue
+        for idx, rec in enumerate(data if isinstance(data, list) else [data]):
+            if not isinstance(rec, dict):
+                errors[f"{name}[{idx}]"] = "not a JSON object"
+                skipped += 1
+                continue
+            if not (rec.get("title") or "").strip():
+                skipped += 1
+                continue
+            records.append(rec)
+
+    profile = memory.load_profile(SETTINGS)
+    papers = [_coerce_paper(r) for r in records]
+    classifications = engine._classify_concurrent(papers, profile, SETTINGS)
+
+    results: list[dict] = []
+    correct = 0
+    labeled = 0
+    # Confusion matrix keyed [expected][predicted].
+    confusion: dict[str, dict[str, int]] = {
+        e: {p: 0 for p in _SCORE_LABELS} for e in _SCORE_LABELS
+    }
+
+    for rec, paper, cl in zip(records, papers, classifications):
+        predicted = cl.label.value
+        expected = (rec.get("expected_label") or "").strip().upper() or None
+        is_correct = expected is not None and predicted == expected
+        if expected is not None:
+            labeled += 1
+            if is_correct:
+                correct += 1
+            if expected in confusion and predicted in confusion[expected]:
+                confusion[expected][predicted] += 1
+        results.append({
+            "title": paper.title,
+            "expected_label": expected,
+            "expected_category": rec.get("expected_category"),
+            "expected_match": rec.get("expected_match"),
+            "predicted_label": predicted,
+            "predicted_match": cl.matched_item_id,
+            "confidence": round(cl.confidence, 3),
+            "reason": cl.reason,
+            "correct": is_correct,
+        })
+
+    return {
+        "total": len(records),
+        "labeled": labeled,
+        "unlabeled": len(records) - labeled,
+        "correct": correct,
+        "accuracy": round(correct / labeled, 4) if labeled else None,
+        "labels": _SCORE_LABELS,
+        "confusion": confusion,
+        "results": results,
+        "skipped": skipped,
+        "errors": errors,
+        "degraded": not bool(SETTINGS.anthropic_api_key),
+    }
+
+
+# ---------------------------------------------------------------------------
 # Dev-UI routes
 # ---------------------------------------------------------------------------
 
@@ -493,40 +648,42 @@ def system_status() -> dict:
     discovered: dict = {}
 
     # --- data sources --------------------------------------------------------
+    # A source connection is "stable" when we've had contact within the last 30
+    # minutes (see connections.py). The status poll does NOT ping the sources here
+    # (that would hammer the upstream APIs every few seconds); instead it reports
+    # the freshness recorded by the staggered 10-minute heartbeat scheduler and by
+    # real data fetches. Each probe raises when stale so _probe() marks it down.
+    from . import connections as _connections  # noqa: PLC0415
+
+    def _source_probe(source: str) -> dict:
+        # Stability comes from the staggered heartbeat scheduler's recorded
+        # last-contact, not a fresh network call here. Optional/best-effort sources
+        # (e.g. ChemRxiv) surface as a "ready" standby instead of failing the rollup.
+        info = _connections.source_status(source, SETTINGS)
+        if not info["ok"]:
+            raise RuntimeError(info.get("detail", "stale"))
+        extra = {"detail": info["detail"]}
+        if info.get("status"):
+            extra["status"] = info["status"]
+        return extra
+
     def ping_pubmed():
-        return _pubmed_probe()
+        return _source_probe("pubmed")
 
     def ping_arxiv():
-        import requests
-        r = requests.get(
-            "http://export.arxiv.org/api/query",
-            params={"search_query": "all:microbiome", "max_results": 1}, timeout=6,
-        )
-        r.raise_for_status()
+        return _source_probe("arxiv")
 
     def ping_biorxiv():
-        import requests
-        r = requests.get("https://api.biorxiv.org/details/biorxiv/2024-01-01/2024-01-02/0",
-                         timeout=6)
-        r.raise_for_status()
+        return _source_probe("biorxiv")
 
     def ping_openalex():
-        import requests
-        r = requests.get("https://api.openalex.org/works",
-                         params={"per-page": 1, "mailto": "baskr@example.com"}, timeout=6)
-        r.raise_for_status()
+        return _source_probe("openalex")
 
     def ping_chemrxiv():
-        import requests
-        r = requests.get("https://chemrxiv.org/engage/chemrxiv/public-api/v1/items",
-                         params={"limit": 1}, timeout=6)
-        r.raise_for_status()
+        return _source_probe("chemrxiv")
 
     def ping_medrxiv():
-        import requests
-        r = requests.get("https://api.medrxiv.org/details/medrxiv/2024-01-01/2024-01-02/0",
-                         timeout=6)
-        r.raise_for_status()
+        return _source_probe("medrxiv")
 
     # --- redis surfaces ------------------------------------------------------
     def ping_redis():
@@ -583,7 +740,13 @@ def system_status() -> dict:
         if not SETTINGS.anthropic_api_key:
             raise RuntimeError("ANTHROPIC_API_KEY not set")
         from anthropic import Anthropic
-        Anthropic(api_key=SETTINGS.anthropic_api_key).models.list()
+        # Bound the call so an unreachable api.anthropic.com (e.g. blocked outbound
+        # 443) fails fast instead of hanging the full status budget and stalling the
+        # whole /status poll (the dev-ui aborts after 9s and renders ALL services
+        # offline). 0/1 retries keeps a single connect timeout from compounding.
+        Anthropic(
+            api_key=SETTINGS.anthropic_api_key, timeout=3.0, max_retries=0
+        ).models.list()
         return {"detail": SETTINGS.reason_model or "claude (default)"}
 
     def ping_consumer():
@@ -676,9 +839,27 @@ def system_status() -> dict:
 
     last_seen = last_new_paper_at()
 
+    # Two-batch pipeline view: how much work is parked in each stage right now,
+    # how the staggered heartbeat is configured, and per-source contact freshness.
+    from . import batches as _batches  # noqa: PLC0415
+    from . import consumer as _consumer  # noqa: PLC0415
+
+    try:
+        _batch_sizes = _batches.batch_sizes(SETTINGS)
+    except Exception:
+        _batch_sizes = {"vector_search": 0, "llm_scan": 0}
+    try:
+        _stage_counts = _consumer.stage_counts()
+    except Exception:
+        _stage_counts = {}
+    try:
+        _source_contacts = _connections.connection_report(SETTINGS)
+    except Exception:
+        _source_contacts = {}
+
     metrics = {
         "papers_processed_last_hour": 0,
-        "papers_processed_total": 0,
+        "papers_processed_total": _stage_counts.get("scanned", 0),
         "langcache_hit_rate": discovered.get("langcache_hit_rate", 0.0),
         "new_papers_seen": seen_count(),
         "new_papers_last_hour": new_papers_last_hour(),
@@ -693,6 +874,15 @@ def system_status() -> dict:
         "memory_records": memory_records,
         "last_processed_at": last_seen,
         "consumer_last_heartbeat": _utc_now_iso(),
+        # --- two-batch pipeline ---
+        "batch_vector_search": _batch_sizes.get("vector_search", 0),
+        "batch_llm_scan": _batch_sizes.get("llm_scan", 0),
+        "stage_counts": _stage_counts,
+        # --- stable-connection model ---
+        "source_contacts": _source_contacts,
+        "stable_window_s": _connections.STABLE_WINDOW_S,
+        "heartbeat_interval_s": _connections.HEARTBEAT_INTERVAL_S,
+        "heartbeat_last_tick": _connections.scheduler_last_tick(),
     }
 
     # Redis surfaces that are genuinely live right now.

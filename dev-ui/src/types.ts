@@ -1,4 +1,9 @@
-export type ConnectionStatus = "healthy" | "degraded" | "down" | "unknown";
+export type ConnectionStatus =
+  | "healthy"
+  | "degraded"
+  | "down"
+  | "unknown"
+  | "ready";
 
 export interface ServiceConnection {
   id: string;
@@ -23,10 +28,51 @@ export interface IntakeResult {
   ids: string[];
 }
 
+export interface ScoreResult {
+  title: string;
+  expected_label: string | null;
+  expected_category: string | null;
+  expected_match: string | null;
+  predicted_label: string;
+  predicted_match: string | null;
+  confidence: number;
+  reason: string;
+  correct: boolean;
+}
+
+export interface ScorecardResult {
+  total: number;
+  labeled: number;
+  unlabeled: number;
+  correct: number;
+  accuracy: number | null;
+  labels: string[];
+  confusion: Record<string, Record<string, number>>;
+  results: ScoreResult[];
+  skipped: number;
+  errors: Record<string, string>;
+  degraded: boolean;
+}
+
 export interface StatusFlipEvent {
   connection: string;
   changed_at: string;
   transition: "on" | "off";
+}
+
+export interface SourceContact {
+  stable: boolean;
+  state?: "stable" | "ready" | "stale" | "down";
+  optional?: boolean;
+  last_contact: string | null;
+  age_seconds: number | null;
+}
+
+export interface StageCounts {
+  seen?: number;
+  vector_passed?: number;
+  scanned?: number;
+  alerts_fired?: number;
 }
 
 export interface SystemMetrics {
@@ -46,6 +92,15 @@ export interface SystemMetrics {
   langCacheHitRate?: number;
   lastProcessedAt?: string;
   consumerLastHeartbeat?: string;
+  // --- two-batch pipeline ---
+  batchVectorSearch: number;
+  batchLlmScan: number;
+  stageCounts: StageCounts;
+  // --- stable-connection model ---
+  sourceContacts: Record<string, SourceContact>;
+  stableWindowS?: number;
+  heartbeatIntervalS?: number;
+  heartbeatLastTick?: string;
 }
 
 export interface SystemStatus {
@@ -128,6 +183,13 @@ export interface StatusResponse {
     langcache_hit_rate?: number;
     last_processed_at?: string;
     consumer_last_heartbeat?: string;
+    batch_vector_search?: number;
+    batch_llm_scan?: number;
+    stage_counts?: StageCounts;
+    source_contacts?: Record<string, SourceContact>;
+    stable_window_s?: number;
+    heartbeat_interval_s?: number;
+    heartbeat_last_tick?: string;
   };
   redis_sources?: string[];
 }

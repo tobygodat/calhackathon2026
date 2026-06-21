@@ -1,4 +1,3 @@
-# do not include in test1
 """Classification engine — implemented once, shared by both surfaces (SPEC §6).
 
     classify_paper(paper, profile):

@@ -1,4 +1,3 @@
-# do not include in test1
 """Unit tests for the classification engine (app/engine.py).
 
 engine.py uses lazy imports from sibling modules, so we patch at the SOURCE:

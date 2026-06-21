@@ -1,0 +1,22 @@
+{
+  "source": "pubmed",
+  "source_id": "90000013",
+  "title": "Growth benefits of MDCF-2 persist to 24 months in extended follow-up of malnourished children",
+  "abstract": "Extending the original MDCF-2 trial, we followed the Bangladeshi cohort to 24 months. Children who received microbiome-directed complementary food MDCF-2 maintained their advantage over the standard-supplement arm in linear growth and retained a more mature, repaired microbiota and elevated growth-associated plasma biomarkers. The durable benefit reinforces and extends the earlier finding that MDCF-2 outperforms standard ready-to-use supplementary food at repairing the microbiota and improving growth.",
+  "authors": [
+    "Synthetic A. Author",
+    "Demo B. Coauthor"
+  ],
+  "doi": "10.5555/synthetic.90000013",
+  "url": "https://example.org/paper_13_extends_reinforce_fnd2",
+  "journal": "NEJM",
+  "published": "2026-06-07",
+  "categories": [
+    "microbiome",
+    "nutrition"
+  ],
+  "uid": "doi:10.5555/synthetic.90000013",
+  "expected_label": "EXTENDS",
+  "expected_category": "previous finding reinforced",
+  "expected_match": "fnd_2"
+}

@@ -1,15 +1,26 @@
-"""Background asyncio-safe consumer over the ``baskr:new_papers`` Redis stream.
+"""Background two-stage consumer over the Redis Streams pipeline.
 
-The consumer runs as a daemon thread (not a coroutine) so it can use the
+The consumer runs as daemon threads (not coroutines) so it can use the
 synchronous Redis client without blocking the uvicorn event loop. It communicates
 results back to the async SSE endpoint via a thread-safe in-memory alert store.
 
-Loop:
-    XREAD baskr:new_papers (blocking, 2 s timeout)
-    for each entry:
-        parse → embed abstract → retrieve_relevant (top-k memory)
-        → classify_paper → if NOT_RELEVANT: skip, else push alert
-    update heartbeat
+Two stages, two batches (see ``batches.py``):
+
+    Stage 1 — vector search  (drains the ``baskr:new_papers`` batch)
+        XREAD baskr:new_papers (blocking, 2 s timeout)
+        for each newly *seen* paper:
+            parse → embed abstract → vector-relevance gate vs the lab profile
+            → if it clears the gate, XADD onto the ``baskr:llm_queue`` batch
+              (otherwise drop it; the LLM never sees it)
+
+    Stage 2 — LLM scan  (drains the ``baskr:llm_queue`` batch)
+        XREAD baskr:llm_queue (blocking, 2 s timeout)
+        for each gate survivor:
+            classify_paper → if NOT_RELEVANT: skip, else push alert
+
+Splitting the old single loop in two means the cheap vector gate and the expensive
+Claude scan run, backpressure, and are observed independently, and the dashboard
+can show how much work is parked in each batch at any moment.
 """
 
 from __future__ import annotations
@@ -47,8 +58,15 @@ _last_heartbeat: str | None = None
 # Count of alerts fired in the current process lifetime (not windowed).
 _alerts_fired: int = 0
 
-# Running consumer thread handle.
-_thread: threading.Thread | None = None
+# Stage counters (process lifetime) surfaced in /status so the dashboard can show
+# how papers flow through the two batches.
+_seen_count: int = 0          # papers pulled off the vector-search batch
+_vector_passed_count: int = 0  # papers that cleared the vector gate -> LLM batch
+_scanned_count: int = 0        # papers pulled off the LLM-scan batch
+
+# Running consumer thread handles (one per stage).
+_vector_thread: threading.Thread | None = None
+_llm_thread: threading.Thread | None = None
 _stop_event = threading.Event()
 
 
@@ -57,24 +75,46 @@ _stop_event = threading.Event()
 # ---------------------------------------------------------------------------
 
 def start(settings: Settings = SETTINGS) -> None:
-    """Start the consumer thread. Idempotent — no-op if already running."""
-    global _thread
-    if _thread is not None and _thread.is_alive():
+    """Start both consumer stages. Idempotent — no-op if already running."""
+    global _vector_thread, _llm_thread
+    running = (
+        _vector_thread is not None and _vector_thread.is_alive()
+        and _llm_thread is not None and _llm_thread.is_alive()
+    )
+    if running:
         return
     _stop_event.clear()
-    _thread = threading.Thread(
-        target=_run_consumer, args=(settings,), daemon=True, name="baskr-consumer"
+    _vector_thread = threading.Thread(
+        target=_run_vector_stage, args=(settings,), daemon=True,
+        name="baskr-consumer-vector",
     )
-    _thread.start()
-    log.info("Consumer started (thread %s)", _thread.name)
+    _llm_thread = threading.Thread(
+        target=_run_llm_stage, args=(settings,), daemon=True,
+        name="baskr-consumer-llm",
+    )
+    _vector_thread.start()
+    _llm_thread.start()
+    log.info("Consumer started (stages: %s, %s)",
+             _vector_thread.name, _llm_thread.name)
 
 
 def stop() -> None:
-    """Signal the consumer thread to stop and wait for it."""
+    """Signal both consumer stages to stop and wait for them."""
     _stop_event.set()
-    if _thread is not None:
-        _thread.join(timeout=5)
+    for t in (_vector_thread, _llm_thread):
+        if t is not None:
+            t.join(timeout=5)
     log.info("Consumer stopped")
+
+
+def stage_counts() -> dict[str, int]:
+    """Per-stage lifetime counters for /status (seen / vector-passed / scanned)."""
+    return {
+        "seen": _seen_count,
+        "vector_passed": _vector_passed_count,
+        "scanned": _scanned_count,
+        "alerts_fired": _alerts_fired,
+    }
 
 
 def get_recent_alerts(n: int = 20) -> list[dict[str, Any]]:
@@ -198,6 +238,24 @@ def _push_alert(alert: dict[str, Any]) -> None:
     write_alert_to_stream(alert, SETTINGS)
 
 
+def _paper_to_fields(paper: PaperOut) -> dict[str, str]:
+    """Flatten a ``PaperOut`` back to the stream-entry field schema (mirrors
+    ``producer._paper_to_fields``) so a gate survivor round-trips onto the LLM
+    batch byte-for-byte compatibly with ``_parse_paper``."""
+    return {
+        "uid": paper.uid or f"{paper.source}:{paper.source_id}",
+        "source": paper.source,
+        "source_id": paper.source_id,
+        "title": paper.title,
+        "abstract": paper.abstract,
+        "authors": json.dumps(paper.authors),
+        "doi": paper.doi or "",
+        "url": paper.url or "",
+        "journal": paper.journal or "",
+        "published": paper.published or "",
+    }
+
+
 def _parse_paper(fields: dict[bytes | str, bytes | str]) -> PaperOut | None:
     """Reconstruct a PaperOut from Redis stream hash fields."""
     def _decode(v: bytes | str) -> str:
@@ -259,35 +317,129 @@ def _classify_and_alert(paper: PaperOut, settings: Settings) -> None:
         log.warning("Consumer: classify failed for %r: %s", paper.title[:40], exc)
 
 
-def _run_consumer(settings: Settings) -> None:
-    """Main consumer loop (runs in daemon thread)."""
+# ---------------------------------------------------------------------------
+# Stage 1 — vector-search gate
+# ---------------------------------------------------------------------------
+
+def _vector_relevance(paper: PaperOut, settings: Settings) -> float:
+    """Cheap vector relevance of ``paper`` to the lab profile (no LLM).
+
+    Embeds the paper abstract and the lab's profile-item texts with the shared
+    embedder and returns the best cosine similarity. This is the same notion of
+    similarity ``redis_client.query_similar`` uses, but computed locally so it works
+    on freshly fetched papers that aren't indexed yet (and in degraded mode via the
+    keyless hash embedder).
+
+    Returns a similarity in ``[0, 1]``, or ``1.0`` when relevance can't be assessed
+    (no profile items / embedding failure) so the gate fails *open* — a transient
+    embedding problem must never silently starve the LLM stage.
+    """
+    from . import memory  # noqa: PLC0415
+    from .engine import _cosine  # noqa: PLC0415
+
+    text = (paper.abstract or paper.title or "").strip()
+    if not text:
+        return 0.0
+    try:
+        items = memory.load_profile(settings).items
+        item_texts = [it.text for it in items if getattr(it, "text", "")]
+        if not item_texts:
+            return 1.0  # nothing to gate against -> let it through
+
+        from .embeddings import embed_batch, embed_text  # noqa: PLC0415
+
+        paper_vec = embed_text(text, settings)
+        item_vecs = embed_batch(item_texts, settings)
+        if not paper_vec or not item_vecs:
+            return 1.0
+        return max(_cosine(paper_vec, v) for v in item_vecs)
+    except Exception as exc:  # noqa: BLE001 — gate fails open on any error
+        log.debug("vector gate: relevance unavailable (%s) — passing through", exc)
+        return 1.0
+
+
+def _vector_gate(paper: PaperOut, settings: Settings) -> bool:
+    """True if ``paper`` clears the vector-relevance threshold for LLM scanning."""
+    score = _vector_relevance(paper, settings)
+    return score >= settings.vector_gate_threshold
+
+
+def _run_vector_stage(settings: Settings) -> None:
+    """Drain the vector-search batch; enqueue gate survivors to the LLM batch."""
+    global _seen_count, _vector_passed_count
+    from .batches import VECTOR_QUEUE_STREAM, enqueue_for_llm  # noqa: PLC0415
     from .redis_client import get_client  # noqa: PLC0415
 
     last_id = "0-0"  # read from the beginning of the stream
-    log.info("Consumer: reading baskr:new_papers from %s", last_id)
+    log.info("Consumer[vector]: reading %s from %s", VECTOR_QUEUE_STREAM, last_id)
 
     while not _stop_event.is_set():
         try:
             client = get_client(settings)
             entries = client.xread(
-                {"baskr:new_papers": last_id},
+                {VECTOR_QUEUE_STREAM: last_id},
                 block=2000,  # 2 s timeout so we can check _stop_event
                 count=10,
             )
             _update_heartbeat()
-
             if not entries:
                 continue
 
             for _stream, messages in entries:
                 for msg_id, fields in messages:
-                    raw_id = msg_id.decode() if isinstance(msg_id, bytes) else msg_id
-                    last_id = raw_id
+                    last_id = msg_id.decode() if isinstance(msg_id, bytes) else msg_id
+                    paper = _parse_paper(fields)
+                    if not paper:
+                        continue
+                    _seen_count += 1
+                    if _vector_gate(paper, settings):
+                        _vector_passed_count += 1
+                        try:
+                            enqueue_for_llm(_paper_to_fields(paper), settings)
+                        except Exception as exc:  # noqa: BLE001
+                            log.warning("Consumer[vector]: enqueue failed: %s", exc)
+                    else:
+                        log.debug("Consumer[vector]: %s below threshold (drop)",
+                                  paper.title[:40])
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Consumer[vector] loop error: %s — retrying in 2 s", exc)
+            _update_heartbeat()
+            time.sleep(2)
+
+
+# ---------------------------------------------------------------------------
+# Stage 2 — LLM scan
+# ---------------------------------------------------------------------------
+
+def _run_llm_stage(settings: Settings) -> None:
+    """Drain the LLM-scan batch; classify each paper and alert on relevance."""
+    global _scanned_count
+    from .batches import LLM_QUEUE_STREAM  # noqa: PLC0415
+    from .redis_client import get_client  # noqa: PLC0415
+
+    last_id = "0-0"
+    log.info("Consumer[llm]: reading %s from %s", LLM_QUEUE_STREAM, last_id)
+
+    while not _stop_event.is_set():
+        try:
+            client = get_client(settings)
+            entries = client.xread(
+                {LLM_QUEUE_STREAM: last_id},
+                block=2000,
+                count=10,
+            )
+            _update_heartbeat()
+            if not entries:
+                continue
+
+            for _stream, messages in entries:
+                for msg_id, fields in messages:
+                    last_id = msg_id.decode() if isinstance(msg_id, bytes) else msg_id
                     paper = _parse_paper(fields)
                     if paper:
+                        _scanned_count += 1
                         _classify_and_alert(paper, settings)
-
         except Exception as exc:  # noqa: BLE001
-            log.warning("Consumer loop error: %s — retrying in 2 s", exc)
+            log.warning("Consumer[llm] loop error: %s — retrying in 2 s", exc)
             _update_heartbeat()
             time.sleep(2)
