@@ -2,35 +2,51 @@ import { useCallback, useEffect, useState } from "react";
 import { fetchStatus } from "./api";
 import { ConnectionsPanel } from "./components/ConnectionsPanel";
 import { MetricCards } from "./components/MetricCards";
+import { PipelineMetricsPanel } from "./components/PipelineMetricsPanel";
+import { PipelinePanel } from "./components/PipelinePanel";
 import { RedisSourcesPanel } from "./components/RedisSourcesPanel";
 import { StatusDot } from "./components/StatusBadge";
-import { generateMockStatus, INITIAL_MOCK_STATUS } from "./mockStatus";
-import type { SystemStatus } from "./types";
+import type { PipelineSearchResult, SystemStatus } from "./types";
 
 const POLL_MS = 10_000;
 
+function EmptyState() {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-700 py-20 text-center">
+      <div className="mb-3 h-3 w-3 rounded-full bg-slate-600" />
+      <p className="text-sm font-medium text-slate-400">Awaiting backend</p>
+      <p className="mt-1 max-w-xs text-xs text-slate-600">
+        No data yet. Start the FastAPI service and ensure{" "}
+        <code className="text-slate-500">GET /status</code> is reachable via{" "}
+        <code className="text-slate-500">/api/status</code>.
+      </p>
+    </div>
+  );
+}
+
 export default function App() {
-  const [status, setStatus] = useState<SystemStatus>(INITIAL_MOCK_STATUS);
-  const [useMock, setUseMock] = useState(true);
+  const [status, setStatus] = useState<SystemStatus | null>(null);
   const [loading, setLoading] = useState(false);
+  const [lastAttempt, setLastAttempt] = useState<Date | null>(null);
+  const [lastPipelineResult, setLastPipelineResult] =
+    useState<PipelineSearchResult | null>(null);
+  const [lastPipelineQuery, setLastPipelineQuery] = useState("");
 
   const refresh = useCallback(async () => {
     setLoading(true);
     const live = await fetchStatus();
-    if (live) {
-      setStatus(live);
-      setUseMock(false);
-    } else if (useMock) {
-      setStatus(generateMockStatus());
-    }
+    if (live) setStatus(live);
+    setLastAttempt(new Date());
     setLoading(false);
-  }, [useMock]);
+  }, []);
 
   useEffect(() => {
     refresh();
     const id = setInterval(refresh, POLL_MS);
     return () => clearInterval(id);
   }, [refresh]);
+
+  const isLive = status?.source === "live";
 
   return (
     <div className="mx-auto min-h-screen max-w-6xl px-4 py-8">
@@ -49,24 +65,24 @@ export default function App() {
 
         <div className="flex flex-col items-end gap-2">
           <div className="flex items-center gap-2">
-            <StatusDot status={status.healthy ? "healthy" : "down"} />
+            <StatusDot status={status ? (status.healthy ? "healthy" : "down") : "unknown"} />
             <span className="text-sm text-slate-300">
-              System {status.healthy ? "healthy" : "degraded"}
+              {status ? (status.healthy ? "System healthy" : "System degraded") : "No connection"}
             </span>
           </div>
           <div className="flex items-center gap-3 text-xs text-slate-500">
             <span
               className={
-                useMock
-                  ? "rounded bg-amber-500/15 px-2 py-0.5 text-amber-400"
-                  : "rounded bg-emerald-500/15 px-2 py-0.5 text-emerald-400"
+                isLive
+                  ? "rounded bg-emerald-500/15 px-2 py-0.5 text-emerald-400"
+                  : "rounded bg-slate-500/15 px-2 py-0.5 text-slate-500"
               }
             >
-              {useMock ? "Mock data" : "Live API"}
+              {isLive ? "Live API" : "No data"}
             </span>
-            <span>
-              Updated {new Date(status.fetchedAt).toLocaleTimeString()}
-            </span>
+            {lastAttempt && (
+              <span>Last attempt {lastAttempt.toLocaleTimeString()}</span>
+            )}
             <button
               type="button"
               onClick={refresh}
@@ -80,16 +96,32 @@ export default function App() {
       </header>
 
       <main className="space-y-8">
-        <MetricCards metrics={status.metrics} />
-        <ConnectionsPanel connections={status.connections} />
-        <RedisSourcesPanel sources={status.redisSources} />
+        {status ? (
+          <>
+            <MetricCards metrics={status.metrics} />
+            <ConnectionsPanel connections={status.connections} />
+            <RedisSourcesPanel sources={status.redisSources} />
+            <PipelineMetricsPanel
+              metrics={status.metrics}
+              lastResult={lastPipelineResult}
+              lastQuery={lastPipelineQuery}
+            />
+            <PipelinePanel
+              onResult={(query, result) => {
+                setLastPipelineQuery(query);
+                setLastPipelineResult(result);
+              }}
+            />
+          </>
+        ) : (
+          <EmptyState />
+        )}
       </main>
 
       <footer className="mt-10 border-t border-slate-800 pt-4 text-xs text-slate-600">
         Polls <code className="text-slate-500">GET /status</code> every 10s via{" "}
         <code className="text-slate-500">/api/status</code> proxy. Set{" "}
         <code className="text-slate-500">VITE_STATUS_URL</code> to override.
-        Falls back to mock data when backend is unavailable.
       </footer>
     </div>
   );

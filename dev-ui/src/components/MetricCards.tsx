@@ -6,9 +6,10 @@ interface MetricCardProps {
   value: string | number;
   sub?: string;
   highlight?: boolean;
+  pending?: boolean;
 }
 
-function MetricCard({ label, value, sub, highlight }: MetricCardProps) {
+function MetricCard({ label, value, sub, highlight, pending }: MetricCardProps) {
   return (
     <div
       className={`rounded-lg border p-4 ${
@@ -18,18 +19,28 @@ function MetricCard({ label, value, sub, highlight }: MetricCardProps) {
       }`}
     >
       <p className="text-xs uppercase tracking-wider text-slate-500">{label}</p>
-      <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-100">
+      <p
+        className={`mt-1 text-2xl font-semibold tabular-nums ${
+          pending ? "text-slate-600" : "text-slate-100"
+        }`}
+      >
         {value}
       </p>
-      {sub && <p className="mt-1 text-xs text-slate-500">{sub}</p>}
+      {sub && (
+        <p className={`mt-1 text-xs ${pending ? "text-slate-700" : "text-slate-500"}`}>
+          {sub}
+        </p>
+      )}
     </div>
   );
 }
 
-export function MetricCards({ metrics }: { metrics: SystemMetrics }) {
+export function MetricCards({ metrics }: { metrics: SystemMetrics | null }) {
+  const m = metrics;
+
   const hitRate =
-    metrics.langCacheHitRate != null
-      ? `${Math.round(metrics.langCacheHitRate * 100)}%`
+    m?.langCacheHitRate != null
+      ? `${Math.round(m.langCacheHitRate * 100)}%`
       : "—";
 
   return (
@@ -38,45 +49,57 @@ export function MetricCards({ metrics }: { metrics: SystemMetrics }) {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           label="Files processed (1h)"
-          value={metrics.filesProcessedLastHour}
+          value={m != null ? m.filesProcessedLastHour : "—"}
           sub="Papers through agent loop"
           highlight
+          pending={m == null}
         />
         <MetricCard
           label="Connections healthy"
-          value={`${metrics.connectionsHealthyPercent}%`}
+          value={m != null ? `${m.connectionsHealthyPercent}%` : "—"}
           sub="All monitored services"
           highlight
+          pending={m == null}
         />
         <MetricCard
           label="Alerts fired (1h)"
-          value={metrics.alertsFiredLastHour}
+          value={m != null ? m.alertsFiredLastHour : "—"}
           sub="Proactive SSE alerts"
+          pending={m == null}
         />
         <MetricCard
           label="Corpus index docs"
-          value={metrics.corpusIndexDocs.toLocaleString()}
+          value={m != null ? m.corpusIndexDocs.toLocaleString() : "—"}
           sub="RedisVL idx:baskr-corpus"
+          pending={m == null}
         />
         <MetricCard
           label="Stream queue"
-          value={metrics.streamQueueLength}
-          sub={`${metrics.streamPending} pending in consumer group`}
+          value={m != null ? m.streamQueueLength : "—"}
+          sub={m != null ? `${m.streamPending} pending in consumer group` : "Pending in consumer group"}
+          pending={m == null}
         />
         <MetricCard
           label="Memory records"
-          value={metrics.memoryRecords}
+          value={m != null ? m.memoryRecords : "—"}
           sub="Agent Memory LTM"
+          pending={m == null}
         />
         <MetricCard
           label="LangCache hit rate"
           value={hitRate}
           sub="Query panel cache"
+          pending={m == null}
         />
         <MetricCard
           label="Last processed"
-          value={formatRelativeTime(metrics.lastProcessedAt)}
-          sub={`Consumer heartbeat ${formatRelativeTime(metrics.consumerLastHeartbeat)}`}
+          value={m != null ? formatRelativeTime(m.lastProcessedAt) : "—"}
+          sub={
+            m != null
+              ? `Consumer heartbeat ${formatRelativeTime(m.consumerLastHeartbeat)}`
+              : "Consumer heartbeat"
+          }
+          pending={m == null}
         />
       </div>
     </section>
