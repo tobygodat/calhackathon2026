@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Baskr — card save / dismiss states</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300..800&family=Newsreader:opsz,wght@6..72,400..600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg:#16181b; --surface:#1c1e22; --divider:#2c2f33; --field-border:#34383d;
+    --faint:#7a7e85; --muted:#9498a0; --secondary:#b0b3b8; --primary:#f2f2f2;
+    --coral:#e0556a; --amber:#d8902f; --teal:#2f9a6f; --violet:#946ad6;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--primary);
+    font-family:"Hanken Grotesk",system-ui,sans-serif; -webkit-font-smoothing:antialiased; padding:50px 60px 80px; }
+  h1 { font-size:20px; font-weight:600; letter-spacing:-.01em; margin:0 0 4px; }
+  .sub { font-size:13px; color:var(--muted); margin:0 0 40px; }
+  .row { display:flex; gap:48px; align-items:flex-start; flex-wrap:wrap; }
+  .cell { width:194px; }
+  .state { font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint);
+    font-weight:600; margin-bottom:14px; }
+  .hint { font-size:11.5px; color:var(--muted); margin-top:12px; line-height:1.5; }
+
+  /* cover stack */
+  .stack { position:relative; width:194px; height:200px; }
+  .peek1 { position:absolute; inset:0; transform:translate(6px,6px) rotate(1.4deg); background:#d9dadd;
+    border-radius:4px; box-shadow:0 8px 22px rgba(0,0,0,.45); }
+  .peek2 { position:absolute; inset:0; transform:translate(3px,3px) rotate(-.6deg); background:#e4e6e9; border-radius:4px; }
+  .cover { position:absolute; inset:0; border-radius:4px; overflow:hidden; border-top:3px solid var(--coral);
+    background:#e9e9ea; box-shadow:0 14px 30px rgba(0,0,0,.5); }
+  .chip { position:absolute; top:8px; left:8px; z-index:3; font-size:10px; font-weight:700; letter-spacing:.04em;
+    color:var(--coral); background:rgba(22,24,27,.8); backdrop-filter:blur(3px); padding:3px 7px; border-radius:4px; }
+  .page { padding:11px 12px; font-family:"Newsreader",serif; }
+  .pt { font-size:7.4px; font-weight:600; line-height:1.25; color:#15171a; }
+  .pa { font-size:5px; color:#5a5e64; font-style:italic; margin:3px 0 6px; }
+  .ln { background:repeating-linear-gradient(#9aa0a6 0 1.1px, transparent 1.1px 4.2px); opacity:.5; border-radius:1px; }
+
+  /* action buttons (top-right) */
+  .actions { position:absolute; top:7px; right:7px; z-index:4; display:flex; gap:6px; }
+  .act { width:28px; height:28px; border-radius:8px; display:grid; place-items:center; cursor:pointer;
+    background:rgba(22,24,27,.82); backdrop-filter:blur(4px); border:none; color:var(--secondary);
+    transition:color .15s, background .15s; }
+  .act:hover { color:var(--primary); background:rgba(22,24,27,.95); }
+  .act svg { width:15px; height:15px; }
+  .act.saved { color:var(--primary); }
+  .act.saved svg path { fill:var(--primary); }
+
+  .caption { text-align:center; margin-top:14px; }
+  .cat { font-size:13px; font-weight:600; color:var(--coral); }
+  .desc { font-size:12px; color:var(--secondary); margin-top:4px; line-height:1.5; }
+
+  /* dismissing state */
+  .dismissing .stack { opacity:.35; transform:scale(.94); transition:.3s; filter:grayscale(.4); }
+  .toast { display:inline-flex; align-items:center; gap:12px; margin-top:16px; background:var(--surface);
+    border:1px solid var(--field-border); border-radius:10px; padding:9px 14px; font-size:12.5px; color:var(--secondary); }
+  .toast b { color:var(--primary); font-weight:500; }
+  .toast a { color:var(--primary); text-decoration:underline; cursor:pointer; }
+
+  .savedband { position:absolute; bottom:0; left:0; right:0; z-index:3; text-align:center;
+    background:rgba(22,24,27,.85); backdrop-filter:blur(3px); color:var(--primary); font-size:10px;
+    letter-spacing:.06em; text-transform:uppercase; font-weight:600; padding:4px 0; }
+</style>
+</head>
+<body>
+  <h1>Card actions — save &amp; dismiss</h1>
+  <p class="sub">Quiet icon buttons in the top-right of each cover (mirroring the label chip top-left). They reveal on hover; the rest of the time the card stays clean.</p>
+
+  <div class="row">
+    <!-- 1 default -->
+    <div class="cell">
+      <div class="state">Resting</div>
+      <div class="stack" id="s1"></div>
+      <div class="caption"><div class="cat">Contradiction published</div><div class="desc">R. Okafor et al. — Directly refutes…</div></div>
+      <div class="hint">No chrome until you need it.</div>
+    </div>
+
+    <!-- 2 hover -->
+    <div class="cell">
+      <div class="state">On hover</div>
+      <div class="stack" id="s2"></div>
+      <div class="caption"><div class="cat">Contradiction published</div><div class="desc">R. Okafor et al. — Directly refutes…</div></div>
+      <div class="hint"><b style="color:var(--secondary)">Save</b> (bookmark) and <b style="color:var(--secondary)">Not relevant</b> (×) fade in.</div>
+    </div>
+
+    <!-- 3 saved -->
+    <div class="cell">
+      <div class="state">Saved</div>
+      <div class="stack" id="s3"></div>
+      <div class="caption"><div class="cat">Contradiction published</div><div class="desc">R. Okafor et al. — Directly refutes…</div></div>
+      <div class="hint">Bookmark fills; a small band marks it saved. Click again to unsave.</div>
+    </div>
+
+    <!-- 4 dismissing -->
+    <div class="cell dismissing">
+      <div class="state">Dismissed</div>
+      <div class="stack" id="s4"></div>
+      <div class="toast"><span><b>Not relevant</b> — removed &amp; noted</span><a>Undo</a></div>
+      <div class="hint">Card collapses out; an undo toast appears. The signal trains the lab profile.</div>
+    </div>
+  </div>
+
+<script>
+  const bookmark = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z"/></svg>`;
+  const bookmarkFill = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z" fill="currentColor"/></svg>`;
+  const cross = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>`;
+  const PAGE = `<div class="page"><div class="pt">Equatorial curvature anomaly fails to replicate across hemispheres</div><div class="pa">R. Okafor, L. Mendez · Nature Physics</div><div class="ln" style="height:30px"></div><div class="ln" style="height:46px;margin-top:6px"></div></div>`;
+  function stack(opts={}) {
+    const acts = opts.actions ? `<div class="actions">
+        <button class="act ${opts.saved?'saved':''}" title="Save">${opts.saved?bookmarkFill:bookmark}</button>
+        <button class="act" title="Not relevant">${cross}</button></div>` : '';
+    const band = opts.saved ? `<div class="savedband">Saved</div>` : '';
+    return `<div class="peek1"></div><div class="peek2"></div>
+      <div class="cover"><div class="chip">CONTRADICTS</div>${acts}${PAGE}${band}</div>`;
+  }
+  s1.innerHTML = stack();
+  s2.innerHTML = stack({actions:true});
+  s3.innerHTML = stack({actions:true, saved:true});
+  s4.innerHTML = stack();
+</script>
+</body>
+</html>

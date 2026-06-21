@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Baskr Pop-out — centered page, side blurbs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,300..800;1,400&family=Newsreader:ital,opsz,wght@0,6..72,400..600;1,6..72,400&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg:#16181b; --surface:#1c1e22; --surface-hover:#212429; --divider:#2c2f33;
+    --field-border:#34383d; --muted-border:#3a3e44; --faint:#7a7e85; --muted:#9498a0;
+    --secondary:#b0b3b8; --primary:#f2f2f2;
+    --coral:#e0556a; --amber:#d8902f; --teal:#2f9a6f; --violet:#946ad6;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--primary);
+    font-family:"Hanken Grotesk", system-ui, sans-serif; -webkit-font-smoothing:antialiased; }
+  .wrap { max-width:1180px; margin:0 auto; padding:0 40px 90px; }
+  .tag { display:flex; align-items:baseline; gap:12px; border-bottom:1px solid var(--divider);
+    padding:26px 0 12px; margin:30px 0 0; }
+  .tag .n { font-size:12px; letter-spacing:.14em; color:var(--faint); font-weight:600; }
+  .tag h2 { font-size:19px; margin:0; font-weight:600; letter-spacing:-.01em; }
+  .tag p { margin:0; font-size:13px; color:var(--muted); }
+  .note { font-size:12.5px; color:var(--faint); margin:16px 2px 0; line-height:1.6; }
+  .note b { color:var(--secondary); font-weight:600; }
+
+  /* stage = the dark backdrop the pop-out floats on */
+  .stage { height:560px; display:grid; place-items:center; margin-top:26px;
+    border-radius:14px; background:
+      radial-gradient(120% 120% at 50% 0%, #1a1c20 0%, #121316 100%); }
+
+  /* faux rendered first page (= /api/thumbnail) */
+  .page { background:#eef0f2; color:#15171a; font-family:"Newsreader",Georgia,serif;
+    overflow:hidden; padding:18px 18px; }
+  .page .pt { font-size:11px; font-weight:600; line-height:1.25; }
+  .page .pa { font-size:7.5px; color:#5a5e64; font-style:italic; margin:5px 0 9px; }
+  .page .ph { font-size:7.5px; font-weight:600; text-transform:uppercase; letter-spacing:.05em;
+    color:#3a3e44; margin:8px 0 3px; }
+  .page .cols { display:grid; grid-template-columns:1fr 1fr; gap:11px; }
+  .ln { background:repeating-linear-gradient(#9aa0a6 0 1.2px, transparent 1.2px 5px);
+    opacity:.5; border-radius:1px; height:var(--h,60px); }
+  .figure { height:44px; background:#dfe2e6; border:1px solid #cfd3d8; border-radius:2px; margin:5px 0; }
+
+  .acCONTRADICTS{color:var(--coral)} .bgCONTRADICTS{background:var(--coral)}
+  .btn { display:inline-flex; align-items:center; gap:6px; background:var(--primary); color:var(--bg);
+    font-size:13px; font-weight:500; padding:9px 17px; border-radius:8px; text-decoration:none; }
+  .eyebrow { font-size:13px; font-weight:600; }
+  .match { font-size:12px; color:var(--faint); }
+  .reason { font-size:13.5px; line-height:1.6; color:var(--secondary); }
+  .title { font-size:19px; font-weight:600; line-height:1.28; letter-spacing:-.015em;
+    text-wrap:pretty; margin:0; }
+  .meta { font-size:12px; color:var(--muted); }
+  .abstract { font-size:12px; line-height:1.65; color:var(--muted); }
+
+  /* ===== A · Symmetric placard (held in a surface card) ===== */
+  .cardA { display:grid; grid-template-columns:210px 300px 210px; gap:34px; align-items:center;
+    background:var(--surface); border:1px solid var(--divider); border-radius:16px; padding:30px 34px;
+    box-shadow:0 30px 80px -20px rgba(0,0,0,.7); }
+  .cardA .pageframe { position:relative; height:400px; border-radius:5px; overflow:hidden;
+    box-shadow:0 16px 36px rgba(0,0,0,.5); }
+  .cardA .pageframe .spine { position:absolute; inset:0 auto 0 0; width:3px; z-index:2; }
+  .cardA .blurbL { text-align:right; }
+  .cardA .blurbL .reason { margin:14px 0 0; }
+  .cardA .blurbL .match { margin-top:4px; }
+  .cardA .blurbR > * + * { margin-top:11px; }
+  .cardA .page { height:100%; }
+
+  /* ===== B · Annotated figure (leader lines, no card) ===== */
+  .stageB .fig { display:grid; grid-template-columns:230px 280px 230px; gap:0; align-items:center; }
+  .stageB .pageframe { position:relative; height:374px; border-radius:5px; overflow:hidden;
+    box-shadow:0 16px 40px rgba(0,0,0,.55); margin:0 30px; }
+  .stageB .pageframe .spine { position:absolute; inset:0 auto 0 0; width:3px; z-index:2; }
+  .stageB .annoL, .stageB .annoR { display:flex; flex-direction:column; gap:26px; }
+  .stageB .annoL { text-align:right; }
+  .stageB .item { position:relative; }
+  .stageB .lead { position:absolute; top:9px; height:1px; background:var(--muted-border); width:30px; }
+  .stageB .annoL .lead { right:-30px; } .stageB .annoR .lead { left:-30px; }
+  .stageB .item .k { font-size:10px; text-transform:uppercase; letter-spacing:.09em;
+    color:var(--faint); margin-bottom:4px; }
+  .stageB .page { height:100%; }
+
+  /* ===== C · Lightbox captions (max restraint, no card) ===== */
+  .stageC .light { display:grid; grid-template-columns:170px 330px 190px; gap:44px; align-items:center; }
+  .stageC .pageframe { position:relative; height:440px; border-radius:6px; overflow:hidden;
+    box-shadow:0 26px 60px rgba(0,0,0,.6); }
+  .stageC .pageframe .spine { position:absolute; inset:0 auto 0 0; width:3px; z-index:2; }
+  .stageC .capL { text-align:right; }
+  .stageC .capL .eyebrow { display:block; }
+  .stageC .capL .match { display:block; margin-top:6px; }
+  .stageC .capR > * + * { margin-top:14px; }
+  .stageC .capR .reason { font-size:13px; }
+  .stageC .page { height:100%; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1 style="font-size:22px;font-weight:600;letter-spacing:-.01em;margin:34px 0 2px">Pop-out — page centered, blurbs flanking</h1>
+  <p style="font-size:13px;color:var(--muted);margin:0">Same idea three ways: the rendered first page is the artifact in the middle; the classification (why) sits on one side, the paper itself (what) on the other.</p>
+
+  <!-- A -->
+  <div class="tag"><span class="n">A</span><h2>Symmetric placard</h2>
+    <p>— page framed in the centre of a quiet card; verdict left, bibliography right</p></div>
+  <div class="stage stageA" id="A"></div>
+  <p class="note"><b>Read as:</b> a museum placard. The page is the object; the two columns hug it symmetrically. Calm, balanced, the card holds it together.</p>
+
+  <!-- B -->
+  <div class="tag"><span class="n">B</span><h2>Annotated figure</h2>
+    <p>— labels connect to the page with thin leader lines, like a figure callout</p></div>
+  <div class="stage stageB" id="B"></div>
+  <p class="note"><b>Read as:</b> an annotated diagram. Each blurb points at the page. More "designed", a touch more chrome — the leader lines do the talking.</p>
+
+  <!-- C -->
+  <div class="tag"><span class="n">C</span><h2>Lightbox captions</h2>
+    <p>— no card; a large page floats with whisper-quiet captions and lots of air</p></div>
+  <div class="stage stageC" id="C"></div>
+  <p class="note"><b>Read as:</b> a photo lightbox. Maximum restraint — the page is big, the text recedes, the abstract moves to a "Read paper" click. Most cinematic, least dense.</p>
+
+</div>
+
+<script>
+  const D = {
+    label:"CONTRADICTS", cat:"Contradiction published", match:"94% match",
+    title:"Equatorial curvature anomaly fails to replicate across hemispheres",
+    meta:"R. Okafor, L. Mendez · Nature Physics · 2026",
+    reason:"Directly refutes the curvature anomaly your lab reported last spring; same instrument class, opposite sign across three independent sites.",
+    abstract:"We present an extended analysis across multiple measurement campaigns, controlling for instrument drift and seasonal bias. Results are consistent across three independent sites.",
+  };
+  const PAGE = `<div class="page">
+    <div class="pt">${D.title}</div>
+    <div class="pa">${D.meta}</div>
+    <div class="ph">Abstract</div>
+    <div class="ln" style="--h:34px"></div>
+    <div class="ph">1 · Introduction</div>
+    <div class="cols">
+      <div><div class="ln" style="--h:60px"></div><div class="figure"></div><div class="ln" style="--h:40px"></div></div>
+      <div><div class="ln" style="--h:120px"></div></div>
+    </div></div>`;
+  const spine = `<span class="spine bg${D.label}"></span>`;
+
+  // A
+  document.getElementById("A").innerHTML = `
+    <div class="cardA">
+      <div class="blurbL">
+        <div class="eyebrow ac${D.label}">${D.cat}</div>
+        <div class="match">${D.match}</div>
+        <p class="reason">${D.reason}</p>
+      </div>
+      <div class="pageframe">${spine}${PAGE}</div>
+      <div class="blurbR">
+        <h3 class="title">${D.title}</h3>
+        <div class="meta">${D.meta}</div>
+        <p class="abstract">${D.abstract}</p>
+        <a class="btn" href="#">Read paper →</a>
+      </div>
+    </div>`;
+
+  // B
+  document.getElementById("B").innerHTML = `
+    <div class="fig">
+      <div class="annoL">
+        <div class="item"><span class="lead"></span><div class="k">Classification</div>
+          <div class="eyebrow ac${D.label}">${D.cat}</div><div class="match">${D.match}</div></div>
+        <div class="item"><span class="lead"></span><div class="k">Why it surfaced</div>
+          <p class="reason">${D.reason}</p></div>
+      </div>
+      <div class="pageframe">${spine}${PAGE}</div>
+      <div class="annoR">
+        <div class="item"><span class="lead"></span><div class="k">Paper</div>
+          <h3 class="title">${D.title}</h3><div class="meta" style="margin-top:6px">${D.meta}</div></div>
+        <div class="item"><span class="lead"></span><div class="k">Abstract</div>
+          <p class="abstract">${D.abstract}</p>
+          <a class="btn" style="margin-top:12px" href="#">Read paper →</a></div>
+      </div>
+    </div>`;
+
+  // C
+  document.getElementById("C").innerHTML = `
+    <div class="light">
+      <div class="capL">
+        <span class="eyebrow ac${D.label}">${D.cat}</span>
+        <span class="match">${D.match}</span>
+      </div>
+      <div class="pageframe">${spine}${PAGE}</div>
+      <div class="capR">
+        <h3 class="title">${D.title}</h3>
+        <div class="meta">${D.meta}</div>
+        <p class="reason">${D.reason}</p>
+        <a class="btn" href="#">Read paper →</a>
+      </div>
+    </div>`;
+</script>
+</body>
+</html>
