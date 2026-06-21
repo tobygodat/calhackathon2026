@@ -12,7 +12,10 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import sys
+
+import sentry_sdk
 
 from .config import CONFIG
 from .pipeline import DataPipeline
@@ -27,6 +30,18 @@ def _print_status() -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Initialize error monitoring as early as possible so any failure during a
+    # pipeline run is reported. Enabled only when SENTRY_DSN is set (see
+    # .env.example); unset is a clean no-op for local/dev runs.
+    sentry_dsn = os.environ.get("SENTRY_DSN")
+    if sentry_dsn:
+        sentry_sdk.init(
+            dsn=sentry_dsn,
+            # Add data like request headers and IP for users; see
+            # https://docs.sentry.io/platforms/python/data-management/data-collected/
+            send_default_pii=True,
+        )
+
     parser = argparse.ArgumentParser(prog="baskr-pipeline", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("query", nargs="?", help="search query / lab open question")
