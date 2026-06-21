@@ -39,9 +39,9 @@ const LABEL_STYLES: Record<
   },
   NOT_RELEVANT: {
     category: "Related work",
-    borderClass: "border-navy",
-    labelClass: "text-navy",
-    linkClass: "text-navy",
+    borderClass: "border-muted-border",
+    labelClass: "text-secondary-text",
+    linkClass: "text-secondary-text",
   },
 };
 
@@ -91,33 +91,39 @@ export default function WelcomeDashboard() {
     <div className="flex h-screen flex-col">
       <TopNav active="dashboard" />
 
-      <main className="flex flex-1 flex-col items-center overflow-y-auto bg-page-bg px-[72px] pb-[72px] pt-16">
+      <main className="flex flex-1 flex-col items-center overflow-y-auto bg-bg px-[72px] pb-[72px] pt-16">
         {/* Greeting */}
-        <div className="mb-12 w-full text-center">
-          <h1 className="font-serif text-[42px] font-normal leading-[1.3] text-navy">
+        <div className="mb-[52px] w-full text-center">
+          <h1 className="font-sans text-[44px] font-semibold leading-[1.25] tracking-[-0.015em] text-primary-text">
             Welcome back {USER_NAME}!
           </h1>
-          <p className="font-serif text-[42px] font-normal leading-[1.3] text-navy">
+          <p className="font-sans text-[44px] font-semibold leading-[1.25] tracking-[-0.015em] text-primary-text">
             The world's been busy:
           </p>
         </div>
 
         {loading ? (
-          <p className="font-serif text-[16px] text-navy/60">Loading the latest…</p>
+          <p className="font-sans text-[16px] text-muted-text">Loading the latest…</p>
         ) : cards.length === 0 ? (
-          <p className="font-serif text-[16px] text-navy/60">
+          <p className="font-sans text-[16px] text-muted-text">
             No recent papers to show yet.
           </p>
         ) : (
           /* Paper cards — three aligned rows (thumbnails, labels, descriptions).
-             Rendered as three passes so each row lines up across all columns. */
-          <div className="grid w-full max-w-[860px] grid-cols-4 gap-x-7 gap-y-[13px]">
+             Rendered as three passes, so each pass must fill exactly one row:
+             the column count has to match the number of cards (handoff shows 4,
+             but a digest can have fewer). Fixed 194px columns keep card size
+             constant and centre the grid regardless of count. */
+          <div
+            className="grid gap-x-7 gap-y-[14px]"
+            style={{ gridTemplateColumns: `repeat(${cards.length}, 194px)` }}
+          >
             {cards.map((entry) => {
               const style = LABEL_STYLES[entry.classification.label];
               return (
                 <div
                   key={`thumb-${entry.paper.uid}`}
-                  className={`h-[200px] overflow-hidden border-[3px] bg-white ${style.borderClass}`}
+                  className={`h-[200px] overflow-hidden border-[3px] bg-[#e9e9ea] ${style.borderClass}`}
                 >
                   <PaperThumbnail paper={entry.paper} />
                 </div>
@@ -129,7 +135,7 @@ export default function WelcomeDashboard() {
               return (
                 <div
                   key={`label-${entry.paper.uid}`}
-                  className={`text-center font-serif text-[13px] font-bold leading-[1.3] ${style.labelClass}`}
+                  className={`text-center font-sans text-[13px] font-semibold leading-[1.35] ${style.labelClass}`}
                 >
                   {style.category}
                 </div>
@@ -141,7 +147,7 @@ export default function WelcomeDashboard() {
               return (
                 <p
                   key={`desc-${entry.paper.uid}`}
-                  className="text-center font-serif text-[12px] leading-[1.65] text-navy"
+                  className="text-center font-sans text-[12.5px] leading-[1.6] text-secondary-text"
                 >
                   <a
                     href={entry.paper.url ?? "#"}

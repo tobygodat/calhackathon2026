@@ -1,7 +1,8 @@
-// Lab Context settings page (handoff "Lab Context Page").
+// Lab Context settings page (handoff "Lab Context").
 // Companion to the Research Dashboard welcome screen — lets a user give the
 // system background about their lab: reference documents, open questions, and
-// miscellaneous notes. Two-column settings layout under the shared top nav.
+// miscellaneous notes. Numbered 1-2-3 guide: each input sits beside a circled
+// step number, separated by hairline dividers, in a single centred column.
 import { useRef, useState } from "react";
 import TopNav from "../welcome/TopNav";
 
@@ -21,65 +22,18 @@ function formatSize(bytes: number): string {
   return `${(bytes / 1048576).toFixed(1)} MB`;
 }
 
-const sectionEyebrow =
-  "font-serif text-[13px] font-bold uppercase tracking-[0.07em] text-navy mb-[22px]";
-const fieldLabel = "font-serif text-[16px] text-navy mb-1";
-const fieldHelper = "font-serif text-[13px] leading-[1.6] text-muted-text";
+// Circled step number on the left rail — 34×34, faint hairline ring.
+const stepBadge =
+  "flex h-[34px] w-[34px] flex-shrink-0 items-center justify-center rounded-full border-[1.5px] border-step-ring font-sans text-[15px] text-[#d8d8d8]";
+const stepTitle = "font-sans text-[19px] font-medium text-primary-text mb-1";
+const fieldHelper = "font-sans text-[14px] leading-[1.6] text-muted-text";
 const textareaClass =
-  "w-full resize-y box-border rounded-[10px] border border-field-border bg-field-bg px-4 py-[14px] font-serif text-[15px] leading-[1.65] text-navy outline-none transition-colors duration-150 placeholder:text-faint-text focus:border-teal focus:bg-white";
-
-// Left section-nav items. Overview is the active section shown here.
-const NAV_ITEMS = [
-  {
-    key: "overview",
-    label: "Overview",
-    icon: (
-      <>
-        <path d="M2 7l8.5-4.5a3 3 0 0 1 3 0L22 7" />
-        <path d="M4 9v8a3 3 0 0 0 1.6 2.6L11 22a2 2 0 0 0 2 0l5.4-2.4A3 3 0 0 0 20 17V9" />
-      </>
-    ),
-  },
-  {
-    key: "documents",
-    label: "Documents",
-    icon: (
-      <>
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-        <polyline points="14 2 14 8 20 8" />
-      </>
-    ),
-  },
-  {
-    key: "questions",
-    label: "Open Questions",
-    icon: (
-      <>
-        <circle cx="12" cy="12" r="9" />
-        <path d="M9.5 9a2.5 2.5 0 0 1 4.5 1.5c0 1.5-2 2-2 3.5" />
-        <line x1="12" y1="17" x2="12" y2="17" />
-      </>
-    ),
-  },
-  {
-    key: "preferences",
-    label: "Preferences",
-    icon: (
-      <>
-        <path d="M20 7h-9" />
-        <path d="M14 17H5" />
-        <circle cx="17" cy="17" r="3" />
-        <circle cx="7" cy="7" r="3" />
-      </>
-    ),
-  },
-] as const;
+  "w-full resize-y box-border rounded-[10px] border border-field-border bg-surface px-4 py-[14px] font-sans text-[15px] leading-[1.65] text-primary-text outline-none transition-colors duration-150 placeholder:text-[#6b6f76] focus:border-[#6b6f76] focus:bg-surface-hover";
 
 export default function LabContextPage() {
   const [uploadedFiles, setUploadedFiles] = useState<StagedFile[]>([]);
   const [openQuestions, setOpenQuestions] = useState("");
   const [miscNotes, setMiscNotes] = useState("");
-  const [activeSection, setActiveSection] = useState<string>("overview");
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -119,70 +73,26 @@ export default function LabContextPage() {
     <div className="flex h-screen flex-col">
       <TopNav active="labContext" />
 
-      <div className="flex h-[calc(100vh-56px)] bg-page-bg">
-        {/* Left section nav */}
-        <aside className="box-border w-[248px] flex-shrink-0 border-r border-field-border bg-sidebar-bg px-4 py-7">
-          <div className="mb-[14px] px-3 font-serif text-[12px] uppercase tracking-[0.1em] text-muted-text">
-            Lab Context
-          </div>
-          <nav className="flex flex-col gap-[3px]">
-            {NAV_ITEMS.map((item) => {
-              const isActive = activeSection === item.key;
-              return (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => setActiveSection(item.key)}
-                  className={`flex items-center gap-[11px] rounded-[7px] px-3 py-[9px] text-left font-serif text-[15px] transition-colors duration-150 ${
-                    isActive
-                      ? "bg-navy text-pale-ice"
-                      : "text-slate-text hover:bg-sidebar-hover"
-                  }`}
-                >
-                  <svg
-                    width="17"
-                    height="17"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.7"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="flex-shrink-0"
-                    aria-hidden="true"
-                  >
-                    {item.icon}
-                  </svg>
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
-          </nav>
-        </aside>
-
+      <div className="flex h-[calc(100vh-56px)] bg-bg">
         {/* Main panel */}
         <main className="lc-scroll box-border flex-1 overflow-y-auto pb-20 pt-14">
-          <div className="mx-auto box-border max-w-[760px] px-14">
+          <div className="mx-auto box-border max-w-[720px] px-14">
             {/* Header */}
-            <h1 className="mb-[6px] font-serif text-[30px] text-navy">
+            <h1 className="mb-1 font-sans text-[34px] font-semibold tracking-[-0.01em] text-primary-text">
               Lab Context
             </h1>
-            <p className="mb-10 font-serif text-[14px] leading-[1.6] text-muted-text">
-              Give the system the background it needs to surface papers that
-              matter to your lab. This context shapes what's flagged for you.
+            <p className="mb-11 font-sans text-[15px] leading-[1.6] text-muted-text">
+              Three things help us flag the right papers for your lab.
             </p>
 
-            {/* Section 1 — Reference Documents */}
-            <h2 className={sectionEyebrow}>Reference Documents</h2>
-            <div className="flex items-start justify-between gap-10 pb-7">
-              <div className="flex-1">
-                <div className={fieldLabel}>Upload files</div>
-                <p className={fieldHelper}>
-                  Add prior papers, grant proposals, or lab notes. PDF, DOCX, or
-                  TXT.
+            {/* Step 1 — Upload reference documents */}
+            <div className="mb-9 flex gap-[22px] border-b border-divider pb-9">
+              <div className={stepBadge}>1</div>
+              <div className="min-w-0 flex-1">
+                <div className={stepTitle}>Upload reference documents</div>
+                <p className={`${fieldHelper} mb-[18px]`}>
+                  Prior papers, grant proposals, or lab notes. PDF, DOCX, or TXT.
                 </p>
-              </div>
-              <div className="w-[300px] flex-shrink-0">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -213,10 +123,10 @@ export default function LabContextPage() {
                     setDragOver(false);
                     addFiles(e.dataTransfer.files);
                   }}
-                  className={`cursor-pointer rounded-[10px] border-[1.5px] border-dashed px-5 py-[26px] text-center transition-colors duration-200 ${
+                  className={`cursor-pointer rounded-[12px] border-[1.5px] border-dashed p-[30px] text-center transition-colors duration-200 ${
                     dragOver
-                      ? "border-teal bg-[#E9F2EC]"
-                      : "border-dropzone-border bg-field-bg hover:border-teal hover:bg-[#E9F2EC]"
+                      ? "border-[#6b6f76] bg-surface-hover"
+                      : "border-muted-border bg-surface hover:border-[#6b6f76] hover:bg-surface-hover"
                   }`}
                 >
                   <svg
@@ -224,20 +134,20 @@ export default function LabContextPage() {
                     height="26"
                     viewBox="0 0 24 24"
                     fill="none"
-                    stroke="#287858"
+                    stroke="#c8c8c8"
                     strokeWidth="1.6"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    className="mx-auto mb-[10px]"
+                    className="mx-auto mb-2.5"
                     aria-hidden="true"
                   >
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                     <polyline points="17 8 12 3 7 8" />
                     <line x1="12" y1="3" x2="12" y2="15" />
                   </svg>
-                  <div className="font-serif text-[14px] text-navy">
+                  <div className="font-sans text-[14px] text-[#d8d8d8]">
                     Drag files here or{" "}
-                    <span className="text-teal underline">browse</span>
+                    <span className="text-primary-text underline">browse</span>
                   </div>
                 </div>
 
@@ -247,14 +157,14 @@ export default function LabContextPage() {
                     {uploadedFiles.map((f) => (
                       <div
                         key={f.id}
-                        className="flex items-center gap-[9px] rounded-[8px] border border-[#DCE7E1] bg-white px-[11px] py-2"
+                        className="flex items-center gap-[9px] rounded-[8px] border border-field-border bg-surface px-[11px] py-2"
                       >
                         <svg
                           width="15"
                           height="15"
                           viewBox="0 0 24 24"
                           fill="none"
-                          stroke="#287858"
+                          stroke="#c8c8c8"
                           strokeWidth="1.7"
                           strokeLinecap="round"
                           strokeLinejoin="round"
@@ -264,17 +174,17 @@ export default function LabContextPage() {
                           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                           <polyline points="14 2 14 8 20 8" />
                         </svg>
-                        <div className="min-w-0 flex-1 truncate font-serif text-[13px] text-navy">
+                        <div className="min-w-0 flex-1 truncate font-sans text-[13px] text-[#e2e2e2]">
                           {f.name}
                         </div>
-                        <div className="flex-shrink-0 font-serif text-[12px] text-faint-text">
+                        <div className="flex-shrink-0 font-sans text-[12px] text-faint-text">
                           {formatSize(f.size)}
                         </div>
                         <button
                           type="button"
                           onClick={() => removeFile(f.id)}
                           aria-label={`Remove ${f.name}`}
-                          className="flex-shrink-0 px-[2px] text-[18px] leading-none text-faint-text transition-colors hover:text-navy"
+                          className="flex-shrink-0 px-[2px] text-[18px] leading-none text-faint-text transition-colors hover:text-primary-text"
                         >
                           ×
                         </button>
@@ -285,57 +195,57 @@ export default function LabContextPage() {
               </div>
             </div>
 
-            <div className="mb-9 h-px bg-divider" />
-
-            {/* Section 2 — Open Questions */}
-            <h2 className={sectionEyebrow}>Open Questions</h2>
-            <div className="mb-2">
-              <div className={fieldLabel}>Relevant open questions</div>
-              <p className={`${fieldHelper} mb-[14px]`}>
-                List the questions your lab is actively trying to answer. Papers
-                that speak to these get prioritised.
-              </p>
-              <textarea
-                value={openQuestions}
-                onChange={(e) => setOpenQuestions(e.target.value)}
-                placeholder={
-                  "e.g. What mechanism drives PSL energy transfer at low temperatures?\nDoes the equatorial curvature anomaly replicate across hemispheres?"
-                }
-                className={`${textareaClass} min-h-[130px]`}
-              />
+            {/* Step 2 — Relevant open questions */}
+            <div className="mb-9 flex gap-[22px] border-b border-divider pb-9">
+              <div className={stepBadge}>2</div>
+              <div className="min-w-0 flex-1">
+                <div className={stepTitle}>Relevant open questions</div>
+                <p className={`${fieldHelper} mb-4`}>
+                  List the questions your lab is actively trying to answer.
+                  Papers that speak to these get prioritised.
+                </p>
+                <textarea
+                  value={openQuestions}
+                  onChange={(e) => setOpenQuestions(e.target.value)}
+                  placeholder={
+                    "e.g. What mechanism drives PSL energy transfer at low temperatures?\nDoes the equatorial curvature anomaly replicate across hemispheres?"
+                  }
+                  className={`${textareaClass} min-h-[120px]`}
+                />
+              </div>
             </div>
 
-            <div className="my-9 h-px bg-divider" />
-
-            {/* Section 3 — Additional Notes */}
-            <h2 className={sectionEyebrow}>Additional Notes</h2>
-            <div className="mb-8">
-              <div className={fieldLabel}>Miscellaneous</div>
-              <p className={`${fieldHelper} mb-[14px]`}>
-                Anything else worth knowing — collaborators, methods you favour,
-                journals you trust, topics to avoid.
-              </p>
-              <textarea
-                value={miscNotes}
-                onChange={(e) => setMiscNotes(e.target.value)}
-                placeholder="e.g. We collaborate closely with the Hertz lab at Stanford. Prefer empirical over purely theoretical work. Skip anything paywalled behind Elsevier."
-                className={`${textareaClass} min-h-[110px]`}
-              />
+            {/* Step 3 — Anything else */}
+            <div className="mb-[38px] flex gap-[22px]">
+              <div className={stepBadge}>3</div>
+              <div className="min-w-0 flex-1">
+                <div className={stepTitle}>Anything else</div>
+                <p className={`${fieldHelper} mb-4`}>
+                  Collaborators, methods you favour, journals you trust, topics
+                  to avoid.
+                </p>
+                <textarea
+                  value={miscNotes}
+                  onChange={(e) => setMiscNotes(e.target.value)}
+                  placeholder="e.g. We collaborate closely with the Hertz lab at Stanford. Prefer empirical over purely theoretical work. Skip anything paywalled behind Elsevier."
+                  className={`${textareaClass} min-h-[100px]`}
+                />
+              </div>
             </div>
 
-            {/* Footer actions */}
-            <div className="flex justify-end gap-3">
+            {/* Footer actions — aligned under the field column (34px badge + 22px gap) */}
+            <div className="flex justify-end gap-3 pl-[56px]">
               <button
                 type="button"
                 onClick={handleCancel}
-                className="rounded-[8px] border border-[#B6CBC0] bg-transparent px-5 py-[9px] font-serif text-[14px] text-slate-text transition-colors hover:bg-[#E4EFE9]"
+                className="rounded-[8px] border border-muted-border bg-transparent px-5 py-[9px] font-sans text-[14px] text-[#c8c8c8] transition-colors hover:border-[#6b6f76] hover:bg-surface-hover"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleSave}
-                className="rounded-[8px] border border-navy bg-navy px-[22px] py-[9px] font-serif text-[14px] text-pale-ice transition-colors hover:bg-navy-mid"
+                className="rounded-[8px] border border-primary-text bg-primary-text px-[22px] py-[9px] font-sans text-[14px] font-medium text-bg transition-colors hover:bg-white"
               >
                 Save context
               </button>

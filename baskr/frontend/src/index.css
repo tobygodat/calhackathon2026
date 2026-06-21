@@ -2,10 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Georgia as the app-wide default font. */
+/* Hanken Grotesk as the app-wide default font. */
 @layer base {
   html {
-    font-family: Georgia, serif;
+    font-family: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
   }
 }
 
@@ -29,6 +29,6 @@
   width: 10px;
 }
 .lc-scroll::-webkit-scrollbar-thumb {
-  background: #c4d6cd;
+  background: #34383d;
   border-radius: 5px;
 }
