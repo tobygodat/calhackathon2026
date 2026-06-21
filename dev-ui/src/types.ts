@@ -29,7 +29,35 @@ export interface SystemStatus {
   metrics: SystemMetrics;
   redisSources: string[];
   fetchedAt: string;
-  source: "live" | "mock";
+  source: "live";
+}
+
+export type PipelineSource = "pubmed" | "arxiv" | "biorxiv" | "nature";
+
+export interface Paper {
+  source: PipelineSource;
+  source_id: string;
+  title: string;
+  abstract: string;
+  authors: string[];
+  doi: string | null;
+  url: string | null;
+  journal: string | null;
+  published: string; // YYYY-MM-DD
+  categories: string[];
+}
+
+export interface PipelineSearchRequest {
+  query: string;
+  days?: number;
+  sources?: PipelineSource[];
+  max_results?: number;
+}
+
+export interface PipelineSearchResult {
+  papers: Paper[];
+  errors: Record<string, string>;
+  counts: Record<string, number>;
 }
 
 export interface StatusResponse {

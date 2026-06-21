@@ -1,4 +1,10 @@
-import type { ServiceConnection, StatusResponse, SystemStatus } from "./types";
+import type {
+  PipelineSearchRequest,
+  PipelineSearchResult,
+  ServiceConnection,
+  StatusResponse,
+  SystemStatus,
+} from "./types";
 
 const API_URL = import.meta.env.VITE_STATUS_URL ?? "/api/status";
 
@@ -8,6 +14,11 @@ const SERVICE_MAP: Record<
 > = {
   pubmed: { id: "pubmed", label: "PubMed / NCBI", category: "source" },
   ncbi: { id: "pubmed", label: "PubMed / NCBI", category: "source" },
+  arxiv: { id: "arxiv", label: "arXiv", category: "source" },
+  biorxiv: { id: "biorxiv", label: "bioRxiv / medRxiv", category: "source" },
+  medrxiv: { id: "biorxiv", label: "bioRxiv / medRxiv", category: "source" },
+  nature: { id: "nature", label: "Nature / Springer", category: "source" },
+  springer: { id: "nature", label: "Nature / Springer", category: "source" },
   redis: { id: "redis", label: "Redis Cloud", category: "redis" },
   redisvl: { id: "redisvl", label: "RedisVL (corpus index)", category: "redis" },
   stream: { id: "streams", label: "Redis Streams", category: "redis" },
@@ -79,6 +90,32 @@ function normalizeStatus(data: StatusResponse): SystemStatus {
     fetchedAt: new Date().toISOString(),
     source: "live",
   };
+}
+
+const PIPELINE_URL = import.meta.env.VITE_PIPELINE_URL ?? "/api/pipeline/search";
+
+export async function fetchPipeline(
+  req: PipelineSearchRequest,
+): Promise<PipelineSearchResult | null> {
+  try {
+    const res = await fetch(PIPELINE_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req),
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      return { papers: [], errors: { request: text || res.statusText }, counts: {} };
+    }
+    return (await res.json()) as PipelineSearchResult;
+  } catch (err) {
+    return {
+      papers: [],
+      errors: { request: err instanceof Error ? err.message : "Unknown error" },
+      counts: {},
+    };
+  }
 }
 
 export async function fetchStatus(): Promise<SystemStatus | null> {
