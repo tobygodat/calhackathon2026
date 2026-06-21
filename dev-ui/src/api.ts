@@ -1,12 +1,10 @@
 import type {
-  DigestEntry,
-  DigestSummary,
-  PipelineSearchRequest,
-  PipelineSearchResult,
+  IntakeResult,
+  LedgerEntry,
   Profile,
-  SearchHit,
   ServiceConnection,
   StatusResponse,
+  SystemMetrics,
   SystemStatus,
 } from "./types";
 
@@ -19,8 +17,10 @@ const SERVICE_MAP: Record<
   pubmed: { id: "pubmed", label: "PubMed / NCBI", category: "source" },
   ncbi: { id: "pubmed", label: "PubMed / NCBI", category: "source" },
   arxiv: { id: "arxiv", label: "arXiv", category: "source" },
-  biorxiv: { id: "biorxiv", label: "bioRxiv / medRxiv", category: "source" },
-  medrxiv: { id: "biorxiv", label: "bioRxiv / medRxiv", category: "source" },
+  biorxiv: { id: "biorxiv", label: "bioRxiv", category: "source" },
+  medrxiv: { id: "medrxiv", label: "medRxiv", category: "source" },
+  openalex: { id: "openalex", label: "OpenAlex", category: "source" },
+  chemrxiv: { id: "chemrxiv", label: "ChemRxiv", category: "source" },
   redis: { id: "redis", label: "Redis Cloud", category: "redis" },
   redisvl: { id: "redisvl", label: "RedisVL (corpus index)", category: "redis" },
   stream: { id: "streams", label: "Redis Streams", category: "redis" },
@@ -31,6 +31,60 @@ const SERVICE_MAP: Record<
   consumer: { id: "fastapi", label: "FastAPI + Agent Consumer", category: "api" },
   fastapi: { id: "fastapi", label: "FastAPI + Agent Consumer", category: "api" },
 };
+
+export const EXPECTED_SERVICES: Array<{
+  id: string;
+  label: string;
+  category: ServiceConnection["category"];
+}> = [
+  { id: "pubmed", label: "PubMed / NCBI", category: "source" },
+  { id: "arxiv", label: "arXiv", category: "source" },
+  { id: "biorxiv", label: "bioRxiv", category: "source" },
+  { id: "medrxiv", label: "medRxiv", category: "source" },
+  { id: "openalex", label: "OpenAlex", category: "source" },
+  { id: "chemrxiv", label: "ChemRxiv", category: "source" },
+  { id: "redis", label: "Redis Cloud", category: "redis" },
+  { id: "redisvl", label: "RedisVL (corpus index)", category: "redis" },
+  { id: "anthropic", label: "Anthropic Claude", category: "api" },
+  { id: "fastapi", label: "FastAPI + Agent Consumer", category: "api" },
+];
+
+function emptyMetrics(): SystemMetrics {
+  return {
+    connectionsHealthy: 0,
+    connectionsTotal: EXPECTED_SERVICES.length,
+    newPapersSeen: 0,
+    newPapersLastHour: 0,
+    lastNewPaperAt: undefined,
+    secondsSinceLastNewPaper: undefined,
+    statusFlipCounts: {},
+    statusFlipSeries: [],
+    alertsFiredLastHour: 0,
+    corpusIndexDocs: 0,
+    streamQueueLength: 0,
+    streamPending: 0,
+    memoryRecords: 0,
+    langCacheHitRate: undefined,
+    lastProcessedAt: undefined,
+    consumerLastHeartbeat: undefined,
+  };
+}
+
+export function offlineStatus(): SystemStatus {
+  return {
+    healthy: false,
+    connections: EXPECTED_SERVICES.map((s) => ({
+      id: s.id,
+      label: s.label,
+      category: s.category,
+      status: "down" as const,
+    })),
+    metrics: emptyMetrics(),
+    redisSources: [],
+    fetchedAt: new Date().toISOString(),
+    source: "offline",
+  };
+}
 
 function mapConnectionStatus(
   ok: boolean,
@@ -69,11 +123,14 @@ function normalizeStatus(data: StatusResponse): SystemStatus {
     healthy: data.healthy,
     connections,
     metrics: {
-      filesProcessedLastHour: m.papers_processed_last_hour ?? 0,
-      filesProcessedTotal: m.papers_processed_total ?? 0,
       connectionsHealthy: connections.filter((c) => c.status === "healthy").length,
       connectionsTotal: connections.length,
       newPapersSeen: m.new_papers_seen ?? 0,
+      newPapersLastHour: m.new_papers_last_hour ?? 0,
+      lastNewPaperAt: m.last_new_paper_at ?? undefined,
+      secondsSinceLastNewPaper: m.seconds_since_last_new_paper ?? undefined,
+      statusFlipCounts: m.status_flip_counts ?? {},
+      statusFlipSeries: m.status_flip_series ?? [],
       alertsFiredLastHour: m.alerts_fired_last_hour ?? 0,
       corpusIndexDocs: m.corpus_index_docs ?? 0,
       streamQueueLength: m.stream_length ?? 0,
@@ -82,43 +139,11 @@ function normalizeStatus(data: StatusResponse): SystemStatus {
       langCacheHitRate: m.langcache_hit_rate,
       lastProcessedAt: m.last_processed_at,
       consumerLastHeartbeat: m.consumer_last_heartbeat,
-      // Pipeline-specific pass-through
-      pipelineSourceCounts: m.pipeline_source_counts,
-      pipelineDedupeRatio: m.pipeline_dedupe_ratio,
-      pipelineLastQuery: m.pipeline_last_query,
-      pipelineLastResultCount: m.pipeline_last_result_count,
-      pipelineSourceErrors: m.pipeline_source_errors,
     },
     redisSources: data.redis_sources ?? [],
     fetchedAt: new Date().toISOString(),
     source: "live",
   };
-}
-
-const PIPELINE_URL = import.meta.env.VITE_PIPELINE_URL ?? "/api/pipeline/search";
-
-export async function fetchPipeline(
-  req: PipelineSearchRequest,
-): Promise<PipelineSearchResult | null> {
-  try {
-    const res = await fetch(PIPELINE_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(req),
-      signal: AbortSignal.timeout(30_000),
-    });
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      return { papers: [], errors: { request: text || res.statusText }, counts: {} };
-    }
-    return (await res.json()) as PipelineSearchResult;
-  } catch (err) {
-    return {
-      papers: [],
-      errors: { request: err instanceof Error ? err.message : "Unknown error" },
-      counts: {},
-    };
-  }
 }
 
 export async function fetchProfile(): Promise<Profile | null> {
@@ -131,42 +156,46 @@ export async function fetchProfile(): Promise<Profile | null> {
   }
 }
 
-export async function fetchSearch(question: string): Promise<SearchHit[] | null> {
+export async function fetchLedger(): Promise<LedgerEntry[] | null> {
   try {
-    const res = await fetch("/api/search", {
+    const res = await fetch("/api/ledger", { signal: AbortSignal.timeout(8_000) });
+    if (!res.ok) return null;
+    return (await res.json()) as LedgerEntry[];
+  } catch {
+    return null;
+  }
+}
+
+export async function dropIntakeFiles(files: File[]): Promise<IntakeResult | null> {
+  const form = new FormData();
+  for (const file of files) {
+    form.append("files", file);
+  }
+  try {
+    const res = await fetch("/api/intake", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question }),
+      body: form,
       signal: AbortSignal.timeout(30_000),
     });
-    if (!res.ok) return null;
-    return (await res.json()) as SearchHit[];
-  } catch {
-    return null;
-  }
-}
-
-export async function fetchDigestHistory(): Promise<DigestSummary[] | null> {
-  try {
-    const res = await fetch("/api/digest/history", {
-      signal: AbortSignal.timeout(8_000),
-    });
-    if (!res.ok) return null;
-    return (await res.json()) as DigestSummary[];
-  } catch {
-    return null;
-  }
-}
-
-export async function fetchDigest(date: string): Promise<DigestEntry[] | null> {
-  try {
-    const res = await fetch(`/api/digest/${date}`, {
-      signal: AbortSignal.timeout(8_000),
-    });
-    if (!res.ok) return null;
-    return (await res.json()) as DigestEntry[];
-  } catch {
-    return null;
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      return {
+        streamed: 0,
+        recorded: 0,
+        skipped: 0,
+        errors: { request: text || res.statusText },
+        ids: [],
+      };
+    }
+    return (await res.json()) as IntakeResult;
+  } catch (err) {
+    return {
+      streamed: 0,
+      recorded: 0,
+      skipped: 0,
+      errors: { request: err instanceof Error ? err.message : "Unknown error" },
+      ids: [],
+    };
   }
 }
 

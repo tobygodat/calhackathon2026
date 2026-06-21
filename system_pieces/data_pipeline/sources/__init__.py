@@ -10,12 +10,18 @@ from .base import PaperSource
 from .pubmed import PubMedSource
 from .arxiv import ArxivSource
 from .biorxiv import BioRxivSource
+from .openalex import OpenAlexSource
+from .chemrxiv import ChemRxivSource
+from .medrxiv import MedRxivSource
 # from .nature import NatureSource
 
 SOURCE_REGISTRY: dict[str, type[PaperSource]] = {
     PubMedSource.name: PubMedSource,
     ArxivSource.name: ArxivSource,
     BioRxivSource.name: BioRxivSource,
+    OpenAlexSource.name: OpenAlexSource,
+    ChemRxivSource.name: ChemRxivSource,
+    MedRxivSource.name: MedRxivSource,
     # NatureSource.name: NatureSource,
 }
 
@@ -24,6 +30,9 @@ __all__ = [
     "PubMedSource",
     "ArxivSource",
     "BioRxivSource",
+    "OpenAlexSource",
+    "ChemRxivSource",
+    "MedRxivSource",
     # "NatureSource",  # DISABLED — see warning above
     "SOURCE_REGISTRY",
 ]

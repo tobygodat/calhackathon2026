@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import sys
+import threading
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -40,6 +41,54 @@ from .redis_client import get_client, load_digest
 
 # Frozen-digest filesystem directory (app/ -> backend/ -> baskr/ -> data/digest_frozen).
 _FROZEN_DIR = Path(__file__).resolve().parents[2] / "data" / "digest_frozen"
+
+# ---------------------------------------------------------------------------
+# PubMed probe result cache
+#
+# Without this, every /status poll fires a fresh unauthenticated NCBI request.
+# Concurrent polls race in ThreadPoolExecutor: if one times out and another
+# succeeds in the same second, record_status() sees two different ok values and
+# writes an off/on flip pair — generating 4-5× more CSV rows than any other
+# source. A 30s TTL collapses all concurrent polls to one NCBI hit and
+# eliminates the oscillation.
+# ---------------------------------------------------------------------------
+_pubmed_cache_lock = threading.Lock()
+_pubmed_cache_result: "dict | None" = None
+_pubmed_cache_expires: float = 0.0
+_PUBMED_CACHE_TTL = 30.0
+
+
+def _pubmed_probe() -> dict:
+    """Return NCBI reachability probe result, using a 30s in-process cache.
+
+    Only successful responses are cached. A network failure raises normally so
+    ``_probe()`` can mark the connection down — but the failure never evicts a
+    valid cached entry.
+    """
+    global _pubmed_cache_result, _pubmed_cache_expires
+    now = time.monotonic()
+    with _pubmed_cache_lock:
+        if _pubmed_cache_result is not None and now < _pubmed_cache_expires:
+            return _pubmed_cache_result
+    import requests  # noqa: PLC0415  (lazy: keep boot light)
+    r = requests.get(
+        "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/einfo.fcgi",
+        params={"retmode": "json"}, timeout=8,
+    )
+    r.raise_for_status()
+    result: dict = {}
+    with _pubmed_cache_lock:
+        _pubmed_cache_result = result
+        _pubmed_cache_expires = time.monotonic() + _PUBMED_CACHE_TTL
+    return result
+
+
+def _reset_pubmed_cache() -> None:
+    """Clear the PubMed probe cache. Used by tests."""
+    global _pubmed_cache_result, _pubmed_cache_expires
+    with _pubmed_cache_lock:
+        _pubmed_cache_result = None
+        _pubmed_cache_expires = 0.0
 
 
 @asynccontextmanager
@@ -167,7 +216,12 @@ def digest_for_date(date: str) -> list[DigestEntry]:
         entries = json.loads(fs_path.read_text())
         return [DigestEntry(**e) for e in entries]
 
-    payload = load_digest(date, SETTINGS)
+    # Redis-backed digest. A Redis outage degrades to "no digest" (404), matching
+    # digest_history's offline-safe handling rather than surfacing a 500.
+    try:
+        payload = load_digest(date, SETTINGS)
+    except Exception:
+        payload = None
     if payload:
         entries = json.loads(payload)
         return [DigestEntry(**e) for e in entries]
@@ -216,21 +270,62 @@ def pipeline_search(body: dict) -> dict:
 # Alerts SSE stream
 # ---------------------------------------------------------------------------
 
+# Idle gap before the blocking reader emits an SSE heartbeat comment (ms).
+_SSE_HEARTBEAT_MS = 15000
+
+
+def _redis_alert_gen(consumer, client):
+    """Stream alerts from the Redis ``baskr:alerts`` stream.
+
+    Replays everything already in the stream (so a freshly connected client sees
+    existing alerts immediately — survives restarts and spans backend instances),
+    then blocks for new entries, emitting a heartbeat comment when idle."""
+    last_id = "0"  # replay from the very start of the stream
+    last_id, alerts = consumer.read_alerts_stream(last_id, block_ms=0, client=client)
+    for alert in alerts:
+        yield f"data: {json.dumps(alert)}\n\n"
+    while True:
+        try:
+            last_id, alerts = consumer.read_alerts_stream(
+                last_id, block_ms=_SSE_HEARTBEAT_MS, client=client
+            )
+        except Exception:
+            break
+        if not alerts:
+            yield ": heartbeat\n\n"
+            continue
+        for alert in alerts:
+            yield f"data: {json.dumps(alert)}\n\n"
+
+
+def _deque_alert_gen(consumer):
+    """Degraded fallback: emit the in-process deque snapshot once (no Redis)."""
+    try:
+        alerts = consumer.get_recent_alerts()
+    except Exception:
+        alerts = []
+    for alert in alerts:
+        try:
+            yield f"data: {json.dumps(alert)}\n\n"
+        except Exception:
+            continue
+
+
 @app.get("/api/alerts/stream")
 def alerts_stream() -> StreamingResponse:
-    """Server-sent events stream of recent alerts. Offline-safe."""
+    """Server-sent events stream of alerts.
+
+    Backed by the Redis ``baskr:alerts`` stream so alerts survive a backend
+    restart and are shared across replicas behind a load balancer. Falls back to
+    the in-process deque when Redis is unreachable. Offline-safe."""
 
     def _gen():
         from . import consumer
-        try:
-            alerts = consumer.get_recent_alerts()
-        except Exception:
-            alerts = []
-        for alert in alerts:
-            try:
-                yield f"data: {json.dumps(alert)}\n\n"
-            except Exception:
-                continue
+        client = consumer._alert_client(SETTINGS)
+        if client is not None:
+            yield from _redis_alert_gen(consumer, client)
+        else:
+            yield from _deque_alert_gen(consumer)
 
     return StreamingResponse(_gen(), media_type="text/event-stream")
 
@@ -376,12 +471,7 @@ def system_status() -> dict:
 
     # --- data sources --------------------------------------------------------
     def ping_pubmed():
-        import requests
-        r = requests.get(
-            "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/einfo.fcgi",
-            params={"retmode": "json"}, timeout=5,
-        )
-        r.raise_for_status()
+        return _pubmed_probe()
 
     def ping_arxiv():
         import requests

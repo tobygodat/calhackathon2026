@@ -42,7 +42,7 @@ def _mock_response(json_data=None, text_data=None, status=200):
 
 class TestSourceRegistry(unittest.TestCase):
     def test_expected_sources_present(self):
-        for name in ("pubmed", "arxiv", "biorxiv"):
+        for name in ("pubmed", "arxiv", "biorxiv", "openalex", "chemrxiv", "medrxiv"):
             self.assertIn(name, SOURCE_REGISTRY)
 
     def test_nature_disabled(self):
