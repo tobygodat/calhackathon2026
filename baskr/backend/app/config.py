@@ -66,6 +66,14 @@ class Settings:
     active_search_cap: int = 5     # max hits returned by /api/search (SPEC §6)
     active_search_days: int = 7    # PubMed lookback window for active search
 
+    # --- classification throughput knobs ---
+    # Bounded concurrency for classify_paper fan-out (engine.run_digest / active_search).
+    classify_concurrency: int = int(os.environ.get("BASKR_CLASSIFY_CONCURRENCY", "5"))
+    # Cheap pre-filter ceiling: active_search LLM-classifies at most this many of the
+    # fetched papers (ranked by a keyless vector/lexical signal first), capping cost to
+    # output size instead of fetch size.
+    preclassify_cap: int = int(os.environ.get("BASKR_PRECLASSIFY_CAP", "20"))
+
     # --- redis key map (SPEC §5.5) ---
     paper_key_prefix: str = "baskr:paper:"
     papers_index: str = "baskr:idx:papers"
