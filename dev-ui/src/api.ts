@@ -127,7 +127,7 @@ export async function fetchPipeline(
 
 export async function fetchStatus(): Promise<SystemStatus | null> {
   try {
-    const res = await fetch(API_URL, { signal: AbortSignal.timeout(4000) });
+    const res = await fetch(API_URL, { signal: AbortSignal.timeout(9000) });
     if (!res.ok) return null;
     const data = (await res.json()) as StatusResponse;
     return normalizeStatus(data);

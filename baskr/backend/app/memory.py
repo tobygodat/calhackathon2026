@@ -1,28 +1,61 @@
-"""Redis Agent Memory read/write for the lab context profile (SPEC §5.1, §5.5).
+"""Lab context profile storage.
 
-The profile lives in the ``lab:{lab_id}`` Agent Memory namespace, one memory per
-item. ``retrieve_relevant`` does the semantic top-k pull the engine uses (k≈8);
-``append_item`` backs the stretch memory write-back so memory visibly grows.
+Loads profile from data/profile_seed.json. In-memory retrieval (no Redis
+Agent Memory required for the demo path). Append writes back to the JSON file.
 """
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from .config import SETTINGS, Settings
 from .models import Profile, ProfileItem, ProfileItemKind
+from .seed_profile import SEED_PATH, load_seed
+
+# Module-level cache so we only read the file once per process.
+_profile_cache: Profile | None = None
 
 
 def load_profile(settings: Settings = SETTINGS) -> Profile:
-    """Read the full lab profile from Agent Memory."""
-    raise NotImplementedError
+    """Return the lab profile, loading from JSON on first call."""
+    global _profile_cache
+    if _profile_cache is None:
+        _profile_cache = load_seed()
+    return _profile_cache
 
 
 def retrieve_relevant(query: str, k: int = SETTINGS.memory_top_k,
                       settings: Settings = SETTINGS) -> list[ProfileItem]:
-    """Semantic top-k retrieval of profile items for a paper/query (SPEC §6)."""
-    raise NotImplementedError
+    """Return up to k profile items. No vector search — returns all items for the demo."""
+    profile = load_profile(settings)
+    return profile.items[:k]
 
 
 def append_item(kind: ProfileItemKind, text: str,
                 settings: Settings = SETTINGS) -> Profile:
-    """Append a new profile item (stretch write-back); return updated profile."""
-    raise NotImplementedError
+    """Append a new profile item and persist to JSON."""
+    global _profile_cache
+    profile = load_profile(settings)
+    new_id = f"{kind.value[:3]}_{len(profile.items) + 1}"
+    new_item = ProfileItem(id=new_id, kind=kind, text=text)
+    updated_items = list(profile.items) + [new_item]
+    updated = Profile(
+        lab_id=profile.lab_id,
+        niche=profile.niche,
+        display_name=profile.display_name,
+        items=updated_items,
+    )
+    # Persist to JSON
+    data = {
+        "lab_id": updated.lab_id,
+        "niche": updated.niche,
+        "display_name": updated.display_name,
+        "items": [
+            {"id": it.id, "kind": it.kind.value, "text": it.text}
+            for it in updated.items
+        ],
+    }
+    SEED_PATH.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    _profile_cache = updated
+    return updated

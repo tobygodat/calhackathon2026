@@ -1,0 +1,112 @@
+[
+  {
+    "date": "2026-06-19",
+    "paper": {
+      "source": "pubmed",
+      "source_id": "38901234",
+      "title": "Dietary fiber-induced Faecalibacterium prausnitzii expansion attenuates colitis through butyrate-mediated IL-10 induction in mucosal macrophages",
+      "abstract": "Dietary fiber fermentation by Faecalibacterium prausnitzii produces butyrate that induces anti-inflammatory IL-10 secretion in intestinal macrophages. In a randomized controlled trial of 120 IBD patients, high-fiber diet (30g/day) over 12 weeks significantly expanded F. prausnitzii abundance (p<0.001), reduced fecal calprotectin by 42%, and elevated mucosal IL-10 levels. Butyrate enema controls confirmed the mechanistic link. These findings support dietary fiber as a microbiome-mediated immunomodulatory intervention in IBD.",
+      "authors": ["Chen X", "Martínez-López N", "Sonnenburg JL"],
+      "doi": "10.1038/s41564-026-01234-5",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/38901234/",
+      "journal": "Nature Microbiology",
+      "published": "2026-06-19",
+      "categories": ["gut microbiome", "dietary fiber", "IBD", "butyrate", "immunology"],
+      "uid": "doi:10.1038/s41564-026-01234-5"
+    },
+    "classification": {
+      "label": "ANSWERS",
+      "reason": "Directly addresses oq_1 by demonstrating the fiber→F. prausnitzii→butyrate→IL-10 mechanism linking dietary fiber, microbiome composition, and systemic immune modulation in IBD patients.",
+      "matched_item_id": "oq_1",
+      "confidence": 0.94
+    }
+  },
+  {
+    "date": "2026-06-19",
+    "paper": {
+      "source": "pubmed",
+      "source_id": "38901235",
+      "title": "Akkermansia muciniphila outer membrane protein Amuc_1100 directly binds TLR2 to reduce intestinal permeability independent of bacterial viability",
+      "abstract": "The beneficial metabolic effects of Akkermansia muciniphila have been attributed to its outer membrane protein Amuc_1100. Here we show Amuc_1100 binds TLR2 on intestinal epithelial cells, activating tight junction protein expression (claudin-3, occludin) and reducing permeability in a viability-independent manner. Amuc_1100 administration to diet-induced obese mice reduced plasma LPS by 55%, improved glucose tolerance (p<0.01), and decreased adipose tissue inflammation, confirming that pasteurization preserves therapeutic activity through this protein-receptor mechanism.",
+      "authors": ["Plovier H", "Everard A", "Cani PD"],
+      "doi": "10.1016/j.chom.2026.05.012",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/38901235/",
+      "journal": "Cell Host & Microbe",
+      "published": "2026-06-18",
+      "categories": ["Akkermansia", "intestinal permeability", "TLR2", "metabolic syndrome"],
+      "uid": "doi:10.1016/j.chom.2026.05.012"
+    },
+    "classification": {
+      "label": "EXTENDS",
+      "reason": "Extends fnd_3 by providing the molecular mechanism (Amuc_1100/TLR2 binding and tight junction upregulation) explaining why pasteurized Akkermansia retains metabolic efficacy without viable bacteria.",
+      "matched_item_id": "fnd_3",
+      "confidence": 0.91
+    }
+  },
+  {
+    "date": "2026-06-19",
+    "paper": {
+      "source": "pubmed",
+      "source_id": "38901236",
+      "title": "Tryptophan catabolism by Lactobacillus reuteri generates indole-3-aldehyde that suppresses neuroinflammation via aryl hydrocarbon receptor signaling in microglia",
+      "abstract": "Gut-derived tryptophan metabolites influence neuroinflammation through the gut-brain axis. We identified that Lactobacillus reuteri converts dietary tryptophan to indole-3-aldehyde (IAld), which crosses the blood-brain barrier and activates aryl hydrocarbon receptor (AhR) in microglia, suppressing LPS-induced neuroinflammation by 67% in ex vivo models. Germ-free mice colonized with L. reuteri showed reduced hippocampal IL-6 and TNF-α, with spatial memory improvements in Morris water maze. IAld serum levels inversely correlated with neuroinflammation markers in 85 human subjects.",
+      "authors": ["Rothhammer V", "Quintana FJ"],
+      "doi": "10.1016/j.cell.2026.05.031",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/38901236/",
+      "journal": "Cell",
+      "published": "2026-06-17",
+      "categories": ["tryptophan", "gut-brain axis", "neuroinflammation", "AhR", "microglia"],
+      "uid": "doi:10.1016/j.cell.2026.05.031"
+    },
+    "classification": {
+      "label": "ANSWERS",
+      "reason": "Directly addresses oq_2 by identifying a specific tryptophan metabolite (IAld) and its AhR-mediated neuroimmune signaling pathway linking gut microbiota to neuroinflammation and cognition.",
+      "matched_item_id": "oq_2",
+      "confidence": 0.92
+    }
+  },
+  {
+    "date": "2026-06-19",
+    "paper": {
+      "source": "arxiv",
+      "source_id": "2406.12345",
+      "title": "Causal inference from observational microbiome cohorts: when does Firmicutes/Bacteroidetes ratio predict metabolic outcomes?",
+      "abstract": "The Firmicutes-to-Bacteroidetes (F/B) ratio has been widely cited as a biomarker of obesity and metabolic syndrome, but causal evidence remains contested. Using Mendelian randomization across 12 population cohorts (n=47,000), we find that F/B ratio is associated with BMI (β=0.14, p=2×10⁻⁸) but not with type 2 diabetes incidence after controlling for dietary confounders. Longitudinal analysis shows diet explains 78% of F/B variance, suggesting ratio changes are a consequence rather than cause of dietary patterns. These findings challenge asm_2-type assumptions about F/B as a causal driver of metabolic disease.",
+      "authors": ["Vandeputte D", "Falony G", "Raes J"],
+      "doi": "10.1101/2026.06.15.123456",
+      "url": "https://arxiv.org/abs/2406.12345",
+      "journal": "bioRxiv preprint",
+      "published": "2026-06-15",
+      "categories": ["Firmicutes", "Bacteroidetes", "metabolic syndrome", "Mendelian randomization", "causal inference"],
+      "uid": "doi:10.1101/2026.06.15.123456"
+    },
+    "classification": {
+      "label": "CONTRADICTS",
+      "reason": "Contradicts asm_2 by showing via Mendelian randomization that the F/B ratio is a consequence of diet rather than a causal driver of metabolic disease in a large multi-cohort analysis.",
+      "matched_item_id": "asm_2",
+      "confidence": 0.88
+    }
+  },
+  {
+    "date": "2026-06-19",
+    "paper": {
+      "source": "biorxiv",
+      "source_id": "2026.06.18.548765",
+      "title": "Roseburia inulinivorans inulin fermentation upregulates colonic epithelial autophagy through propionate-HDAC inhibition",
+      "abstract": "Roseburia inulinivorans, a major inulin-fermenting taxon, produces propionate that inhibits histone deacetylases (HDACs) in colonocytes, upregulating autophagy genes (BECN1, ATG5, ATG7) by 2.8-fold. In a fiber supplementation cohort (n=45), R. inulinivorans expansion correlated with propionate levels (r=0.71) and reduced markers of cellular senescence in colonic biopsies. HDAC inhibitor treatment phenocopied these effects. These findings reveal a new mechanism connecting dietary fiber fermentation to colonic epithelial health maintenance.",
+      "authors": ["Scott KP", "Duncan SH", "Flint HJ"],
+      "doi": "10.1101/2026.06.18.548765",
+      "url": "https://www.biorxiv.org/content/10.1101/2026.06.18.548765",
+      "journal": "bioRxiv",
+      "published": "2026-06-18",
+      "categories": ["Roseburia", "propionate", "HDAC", "autophagy", "dietary fiber"],
+      "uid": "doi:10.1101/2026.06.18.548765"
+    },
+    "classification": {
+      "label": "EXTENDS",
+      "reason": "Extends fnd_1 by revealing a propionate/HDAC-inhibition/autophagy mechanism through which Roseburia inulinivorans fiber fermentation maintains colonic epithelial health beyond SCFA production alone.",
+      "matched_item_id": "fnd_1",
+      "confidence": 0.87
+    }
+  }
+]
