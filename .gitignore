@@ -1,3 +1,7 @@
+# Secrets — never commit
+.env
+*.env
+
 # Compiled class file
 *.class
 
