@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import argparse
 import logging
-import os
 import sys
 from pathlib import Path
 
@@ -31,29 +30,7 @@ for _p in (_ROOT, _BACKEND):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
-
-def _load_dotenv(path: Path) -> None:
-    """Minimal stdlib .env loader: apply ``KEY=VALUE`` lines into ``os.environ``
-    without overriding values already exported in the real environment. Must run
-    *before* ``app.config`` is imported, since ``Settings`` reads ``os.environ`` at
-    import time. Quotes around values are stripped; ``#`` lines are ignored."""
-    if not path.exists():
-        return
-    for raw in path.read_text().splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        key = key.strip()
-        # Drop any trailing inline comment, then surrounding quotes.
-        value = value.split(" #", 1)[0].strip().strip('"').strip("'")
-        if key:
-            os.environ.setdefault(key, value)
-
-
-# Pick up baskr/.env (gitignored) so REDIS_URL etc. are loaded automatically.
-_load_dotenv(Path(__file__).resolve().parents[1] / ".env")
-
+# baskr/.env is auto-loaded by app.config on import (see config._load_dotenv).
 from app.config import SETTINGS
 from app.producer import produce_loop, produce_once
 

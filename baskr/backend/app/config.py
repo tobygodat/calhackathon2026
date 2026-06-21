@@ -1,13 +1,39 @@
 """Environment, model names, and thresholds for the Baskr backend (SPEC §11).
 
 This is the one place that reads ``os.environ``. Everything else takes a
-``Settings`` instance. Values mirror ``baskr/.env.example``.
+``Settings`` instance. Values mirror ``baskr/.env.example``. On import it also
+auto-loads ``baskr/.env`` (gitignored) into ``os.environ`` without overriding any
+variable already set in the real environment.
 """
 
 from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from pathlib import Path
+
+
+def _load_dotenv(path: Path) -> None:
+    """Apply ``KEY=VALUE`` lines from a .env file into ``os.environ`` without
+    overriding values already set in the real environment. Runs at import, *before*
+    ``Settings`` reads ``os.environ`` below. Missing file / malformed lines are
+    ignored; surrounding quotes and trailing `` # comments`` are stripped."""
+    if not path.exists():
+        return
+    for raw in path.read_text().splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.split(" #", 1)[0].strip().strip('"').strip("'")
+        if key:
+            os.environ.setdefault(key, value)
+
+
+# Auto-load baskr/.env (gitignored) so REDIS_URL etc. are picked up without a manual
+# `export`/`source`. config.py is baskr/backend/app/config.py -> baskr/ is parents[2].
+_load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 
 @dataclass(frozen=True)
