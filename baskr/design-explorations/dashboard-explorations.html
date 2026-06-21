@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Baskr Dashboard — Design Explorations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,300..800;1,400&family=Newsreader:ital,opsz,wght@0,6..72,400..600;1,6..72,400&display=swap" rel="stylesheet" />
+<style>
+  /* Baskr dark-monochrome tokens (tailwind.config.js) */
+  :root {
+    --bg: #16181b; --surface: #1c1e22; --surface-hover: #212429;
+    --divider: #2c2f33; --field-border: #34383d; --muted-border: #3a3e44;
+    --step-ring: #5a5e64; --faint: #7a7e85; --muted: #9498a0;
+    --secondary: #b0b3b8; --primary: #f2f2f2;
+    --coral: #e0556a; --amber: #d8902f; --teal: #2f9a6f; --violet: #946ad6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--primary);
+    font-family: "Hanken Grotesk", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1320px; margin: 0 auto; padding: 0 40px 80px; }
+  .section { padding-top: 30px; }
+  .section-tag {
+    display: flex; align-items: baseline; gap: 12px;
+    border-bottom: 1px solid var(--divider); padding: 22px 0 12px; margin-bottom: 30px;
+  }
+  .section-tag .n { font-size: 12px; letter-spacing: .14em; color: var(--faint); font-weight: 600; }
+  .section-tag h2 { font-size: 19px; margin: 0; font-weight: 600; letter-spacing: -.01em; }
+  .section-tag p { margin: 0; font-size: 13px; color: var(--muted); }
+
+  /* ---------- Shared: faux "rendered first page" of a paper ---------- */
+  /* Represents what /api/thumbnail returns: the real PDF first page. */
+  .page { background: #eef0f2; color: #1a1a1a; width: 100%; height: 100%;
+          padding: 11px 12px; font-family: "Newsreader", Georgia, serif; overflow: hidden; }
+  .page .pt { font-size: 7.4px; font-weight: 600; line-height: 1.25; color: #15171a; }
+  .page .pa { font-size: 5px; color: #5a5e64; margin: 3px 0 6px; font-style: italic; }
+  .page .ph { font-size: 5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+              color: #3a3e44; margin: 5px 0 2px; }
+  .page .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .lines { height: var(--h, 54px);
+    background: repeating-linear-gradient(#9aa0a6 0 1.1px, transparent 1.1px 4.2px);
+    opacity: .55; border-radius: 1px; }
+  .fig { height: 34px; background: #dfe2e6; border: 1px solid #cfd3d8; border-radius: 2px;
+         margin-top: 4px; position: relative; overflow: hidden; }
+  .fig::after { content: ""; position: absolute; left: 6px; right: 6px; bottom: 5px; height: 14px;
+    background:
+      linear-gradient(transparent 60%, #b9bec4 60%) 0 0/14px 100% repeat-x; opacity: .7; }
+
+  /* Accent helpers */
+  .ac-CONTRADICTS { color: var(--coral); } .bd-CONTRADICTS { border-color: var(--coral); } .bg-CONTRADICTS { background: var(--coral); }
+  .ac-EXTENDS { color: var(--amber); } .bd-EXTENDS { border-color: var(--amber); } .bg-EXTENDS { background: var(--amber); }
+  .ac-ANSWERS { color: var(--teal); } .bd-ANSWERS { border-color: var(--teal); } .bg-ANSWERS { background: var(--teal); }
+  .ac-SCOOP { color: var(--violet); } .bd-SCOOP { border-color: var(--violet); } .bg-SCOOP { background: var(--violet); }
+
+  /* ---------- Nav variants ---------- */
+  .nav { display: flex; align-items: center; height: 56px; border-bottom: 1px solid var(--divider);
+         padding: 0 22px; gap: 28px; border-radius: 10px 10px 0 0; background: var(--bg);
+         border: 1px solid var(--divider); }
+  .nav a { font-size: 14px; color: var(--muted); text-decoration: none; }
+  .nav a.active { color: var(--primary); }
+  .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 16px;
+           letter-spacing: -.01em; color: var(--primary); text-decoration: none; }
+  .brand .mark { width: 20px; height: 20px; border-radius: 6px; background: var(--primary);
+                 display: grid; place-items: center; color: var(--bg); font-size: 12px; font-weight: 800; }
+  .pill { margin: 0 auto; display: flex; align-items: center; gap: 8px; color: var(--secondary);
+          border: 1px solid rgba(255,255,255,.2); border-radius: 20px; padding: 6px 14px; font-size: 14px; }
+  .nav .right { display: flex; align-items: center; gap: 28px; }
+  .note { font-size: 12.5px; color: var(--faint); margin: 10px 2px 26px; line-height: 1.6; }
+  .note b { color: var(--secondary); font-weight: 600; }
+
+  /* ========== A · Cover stack (depth) ========== */
+  .gridA { display: grid; grid-template-columns: repeat(4, 194px); gap: 28px 28px; justify-content: center; }
+  .coverwrap { position: relative; width: 194px; }
+  .coverwrap .peek { position: absolute; inset: 0; transform: translate(7px, 7px) rotate(1.4deg);
+    background: #d9dadd; border-radius: 4px; box-shadow: 0 8px 22px rgba(0,0,0,.45); }
+  .coverwrap .peek2 { position: absolute; inset: 0; transform: translate(3px, 3px) rotate(-.6deg);
+    background: #e4e6e9; border-radius: 4px; }
+  .cover { position: relative; height: 244px; border-radius: 4px; overflow: hidden;
+    box-shadow: 0 14px 30px rgba(0,0,0,.5); border-top: 3px solid; }
+  .cover .spinechip { position: absolute; top: 8px; left: 8px; z-index: 2;
+    font-size: 9.5px; font-weight: 700; letter-spacing: .04em; padding: 3px 7px; border-radius: 4px;
+    background: rgba(20,22,25,.82); backdrop-filter: blur(3px); }
+  .Acap { margin-top: 16px; }
+  .Acat { font-size: 12.5px; font-weight: 600; text-align: center; }
+  .Adesc { font-size: 12px; line-height: 1.55; color: var(--secondary); text-align: center; margin-top: 5px; }
+  .Adesc a { text-decoration: underline; }
+
+  /* ========== B · Editorial rows ========== */
+  .listB { display: flex; flex-direction: column; gap: 14px; max-width: 760px; margin: 0 auto; }
+  .rowB { display: grid; grid-template-columns: 96px 1fr; gap: 18px; padding: 16px;
+    background: var(--surface); border: 1px solid var(--divider); border-radius: 12px;
+    border-left: 3px solid; align-items: stretch; }
+  .rowB .thumb { height: 124px; border-radius: 4px; overflow: hidden; background: #eef0f2;
+    box-shadow: 0 6px 14px rgba(0,0,0,.35); }
+  .rowB .meta .cat { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+    display: flex; align-items: center; gap: 7px; }
+  .rowB .meta .cat .dot { width: 7px; height: 7px; border-radius: 50%; }
+  .rowB .meta h3 { font-size: 16px; margin: 8px 0 6px; line-height: 1.3; font-weight: 600; letter-spacing: -.01em; }
+  .rowB .meta p { font-size: 13px; color: var(--secondary); line-height: 1.6; margin: 0; }
+  .rowB .meta .src { color: var(--muted); }
+  .rowB .conf { margin-left: auto; font-size: 11.5px; color: var(--faint); }
+  .rowB .catline { display: flex; align-items: center; }
+
+  /* ========== C · Hero + supporting ========== */
+  .hero { display: grid; grid-template-columns: 240px 1fr; gap: 30px; background: var(--surface);
+    border: 1px solid var(--divider); border-radius: 16px; padding: 26px; border-top: 3px solid;
+    max-width: 900px; margin: 0 auto 22px; }
+  .hero .cover { height: 320px; box-shadow: 0 18px 40px rgba(0,0,0,.55); border-top: none; }
+  .hero .cat { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+    display: flex; align-items: center; gap: 8px; }
+  .hero .cat .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .hero h3 { font-size: 27px; line-height: 1.22; letter-spacing: -.015em; margin: 14px 0 10px; font-weight: 600; }
+  .hero .src { font-size: 13px; color: var(--muted); margin-bottom: 14px; }
+  .hero p { font-size: 14.5px; line-height: 1.65; color: var(--secondary); margin: 0; max-width: 52ch; }
+  .subC { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; max-width: 900px; margin: 0 auto; }
+  .subcard { background: var(--surface); border: 1px solid var(--divider); border-radius: 12px;
+    padding: 12px; border-top: 2px solid; }
+  .subcard .cover { height: 150px; box-shadow: 0 8px 18px rgba(0,0,0,.4); border-top: none; border-radius: 4px; }
+  .subcard .cat { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; margin-top: 10px; }
+  .subcard h4 { font-size: 13px; margin: 5px 0 0; line-height: 1.32; font-weight: 600; color: var(--primary); }
+
+  /* ========== D · Poster overlay ========== */
+  .gridD { display: grid; grid-template-columns: repeat(4, 200px); gap: 24px; justify-content: center; }
+  .poster { position: relative; height: 270px; border-radius: 10px; overflow: hidden;
+    border: 1px solid var(--divider); box-shadow: 0 14px 30px rgba(0,0,0,.5); }
+  .poster .page { filter: saturate(.96) contrast(1.02); }
+  .poster .scrim { position: absolute; inset: 0; background:
+    linear-gradient(to top, rgba(12,13,15,.96) 0%, rgba(12,13,15,.7) 26%, rgba(12,13,15,0) 52%); }
+  .poster .topband { position: absolute; top: 0; left: 0; right: 0; height: 4px; }
+  .poster .ov { position: absolute; left: 13px; right: 13px; bottom: 12px; }
+  .poster .ov .cat { font-size: 10.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+    display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .poster .ov .cat .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .poster .ov h4 { font-size: 13.5px; line-height: 1.3; margin: 0 0 5px; font-weight: 600; color: #fff; }
+  .poster .ov p { font-size: 11px; line-height: 1.5; color: #c4c7cc; margin: 0; }
+
+  .greeting { text-align: center; margin: 4px 0 26px; }
+  .greeting h1 { font-size: 30px; font-weight: 600; letter-spacing: -.015em; margin: 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- NAV: home relocation -->
+  <div class="section">
+    <div class="section-tag"><span class="n">NAV</span><h2>Home button moved</h2>
+      <p>— wordmark on the far left is now the home link; top-right house icon removed</p></div>
+    <div class="nav">
+      <a class="brand" href="#"><span class="mark">b</span>baskr</a>
+      <a href="#">Preferences</a>
+      <a href="#" class="active">Flagged Papers</a>
+      <div class="pill">⌕ &nbsp;Search</div>
+      <div class="right">
+        <a href="#">Past Papers</a>
+        <a href="#">Lab Context</a>
+      </div>
+    </div>
+    <p class="note"><b>Why:</b> a logo that returns home is the universal convention — it sits where the eye
+      starts (top-left), so nothing new to learn, and it frees the crowded top-right. The redundant house
+      icon goes away.</p>
+  </div>
+
+  <!-- A -->
+  <div class="section">
+    <div class="section-tag"><span class="n">A</span><h2>Cover stack — depth &amp; flair</h2>
+      <p>— same 4-column layout, but each first page becomes a physical document with shadow + page-peek</p></div>
+    <div class="greeting"><h1>The world's been busy:</h1></div>
+    <div class="gridA" id="shotA"></div>
+    <p class="note"><b>Keeps</b> the familiar grid. <b>Adds</b> drop shadow + two faint pages peeking behind,
+      so the rendered first page reads as a real paper. Accent = thin top spine + corner chip on the cover.</p>
+  </div>
+
+  <!-- B -->
+  <div class="section">
+    <div class="section-tag"><span class="n">B</span><h2>Editorial rows — scannable feed</h2>
+      <p>— portrait cover on the left, full title + reason on the right; scales past 4 papers</p></div>
+    <div class="listB" id="shotB"></div>
+    <p class="note"><b>Best when</b> a digest has more than 4 papers. Title and reasoning get real room;
+      the cover is a supporting thumbnail, not the whole card.</p>
+  </div>
+
+  <!-- C -->
+  <div class="section">
+    <div class="section-tag"><span class="n">C</span><h2>Hero + supporting — editorial hierarchy</h2>
+      <p>— the top-confidence paper gets a large cover &amp; headline; the rest sit below</p></div>
+    <div class="hero bd-CONTRADICTS" id="heroC"></div>
+    <div class="subC" id="subC"></div>
+    <p class="note"><b>Adds</b> a clear focal point — the single most important paper of the day leads,
+      like a front-page story. Strong when one paper really matters most.</p>
+  </div>
+
+  <!-- D -->
+  <div class="section">
+    <div class="section-tag"><span class="n">D</span><h2>Poster overlay — maximum flair</h2>
+      <p>— first page fills the card; category + title sit on a gradient scrim over the page</p></div>
+    <div class="gridD" id="shotD"></div>
+    <p class="note"><b>Most flair</b>, streaming-poster feel. The cover is the hero; text floats on a scrim.
+      Trade-off: the reasoning text is shorter, so detail moves into the click-to-expand modal.</p>
+  </div>
+
+</div>
+
+<script>
+  const DATA = [
+    { label:"CONTRADICTS", cat:"Contradiction published", src:"R. Okafor et al.",
+      title:"Equatorial curvature anomaly fails to replicate across hemispheres",
+      reason:"Directly refutes the curvature anomaly your lab reported last spring.", conf:94,
+      authors:"R. Okafor, L. Mendez · Nature Physics" },
+    { label:"EXTENDS", cat:"Knowledge gap filled", src:"H. Tanaka",
+      title:"Low-temperature PSL energy transfer mapped at picosecond resolution",
+      reason:"Fills the open question on PSL transfer mechanism you flagged.", conf:88,
+      authors:"H. Tanaka · Physical Review Letters" },
+    { label:"ANSWERS", cat:"Answer to open question", src:"S. Whitfield et al.",
+      title:"A closed-form bound for diffusive coupling in layered media",
+      reason:"Answers the coupling-bound question from your March proposal.", conf:81,
+      authors:"S. Whitfield, A. Roy, P. Cohen · J. Appl. Phys." },
+    { label:"SCOOP", cat:"Potential scoop", src:"M. Hertz",
+      title:"Hertz-lab preprint hints at the same hemispheric dataset",
+      reason:"A collaborator-adjacent group may reach your result first.", conf:76,
+      authors:"M. Hertz · bioRxiv" },
+  ];
+
+  // Faux rendered first page (stands in for /api/thumbnail PDF render).
+  function pageHTML(d) {
+    return `<div class="page">
+      <div class="pt">${d.title}</div>
+      <div class="pa">${d.authors}</div>
+      <div class="ph">Abstract</div>
+      <div class="lines" style="--h:30px"></div>
+      <div class="ph" style="margin-top:6px">1 · Introduction</div>
+      <div class="cols">
+        <div><div class="lines" style="--h:46px"></div><div class="fig"></div><div class="lines" style="--h:22px;margin-top:4px"></div></div>
+        <div><div class="lines" style="--h:80px"></div></div>
+      </div>
+    </div>`;
+  }
+
+  // A
+  document.getElementById("shotA").innerHTML = DATA.map(d => `
+    <div>
+      <div class="coverwrap">
+        <div class="peek"></div><div class="peek2"></div>
+        <div class="cover bd-${d.label}">
+          <div class="spinechip ac-${d.label}">${d.label}</div>
+          ${pageHTML(d)}
+        </div>
+      </div>
+      <div class="Acap">
+        <div class="Acat ac-${d.label}">${d.cat}</div>
+        <div class="Adesc"><a class="ac-${d.label}">${d.src}</a> — ${d.reason}</div>
+      </div>
+    </div>`).join("");
+
+  // B
+  document.getElementById("shotB").innerHTML = DATA.map(d => `
+    <div class="rowB bd-${d.label}">
+      <div class="thumb">${pageHTML(d)}</div>
+      <div class="meta">
+        <div class="catline">
+          <div class="cat ac-${d.label}"><span class="dot bg-${d.label}"></span>${d.cat}</div>
+          <span class="conf">${d.conf}% match</span>
+        </div>
+        <h3>${d.title}</h3>
+        <p><span class="src">${d.src}</span> — ${d.reason}</p>
+      </div>
+    </div>`).join("");
+
+  // C
+  const h = DATA[0];
+  document.getElementById("heroC").innerHTML = `
+    <div class="cover">${pageHTML(h)}</div>
+    <div>
+      <div class="cat ac-${h.label}"><span class="dot bg-${h.label}"></span>${h.cat}</div>
+      <h3>${h.title}</h3>
+      <div class="src">${h.authors} · ${h.conf}% match</div>
+      <p>${h.reason} Same instrument class, opposite sign across three independent sites — worth a close read before your next submission.</p>
+    </div>`;
+  document.getElementById("subC").innerHTML = DATA.slice(1).map(d => `
+    <div class="subcard bd-${d.label}">
+      <div class="cover">${pageHTML(d)}</div>
+      <div class="cat ac-${d.label}">${d.cat}</div>
+      <h4>${d.title}</h4>
+    </div>`).join("");
+
+  // D
+  document.getElementById("shotD").innerHTML = DATA.map(d => `
+    <div class="poster">
+      ${pageHTML(d)}
+      <div class="scrim"></div>
+      <div class="topband bg-${d.label}"></div>
+      <div class="ov">
+        <div class="cat ac-${d.label}"><span class="dot bg-${d.label}"></span>${d.cat}</div>
+        <h4>${d.title}</h4>
+        <p>${d.reason}</p>
+      </div>
+    </div>`).join("");
+</script>
+</body>
+</html>
