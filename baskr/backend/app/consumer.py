@@ -313,6 +313,7 @@ def _classify_and_alert(paper: PaperOut, settings: Settings) -> None:
             classification.confidence,
             classification.reason[:60],
         )
+        _maybe_write_memory(paper, classification, settings)
     except Exception as exc:  # noqa: BLE001
         log.warning("Consumer: classify failed for %r: %s", paper.title[:40], exc)
 

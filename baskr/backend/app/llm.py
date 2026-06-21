@@ -59,6 +59,14 @@ _CLASSIFY_TOOL = {
                 "description": "Profile item id, or null if NOT_RELEVANT.",
             },
             "confidence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+            "new_memory": {
+                "type": ["string", "null"],
+                "description": (
+                    "A durable one-sentence fact worth remembering about THIS lab "
+                    "learned from the paper, or null if nothing new. Only set it for "
+                    "a relevant paper (the 'Remember' step)."
+                ),
+            },
         },
         "required": ["label", "reason", "matched_item_id", "confidence"],
         "additionalProperties": False,
@@ -231,8 +239,14 @@ def _classify_degraded(user: str, settings: Settings) -> Classification:
         f"[deterministic stand-in] Best lexical match is profile item "
         f"{best_id or 'none'} (overlap {best_overlap:.2f})."
     )
+    # "Remember" step: only propose a memory when there is a matched item. The
+    # threshold-collapse rule nulls this out for sub-threshold (NOT_RELEVANT) results.
+    new_memory = (
+        f"A new paper {label.value} profile item {best_id}." if best_id else None
+    )
     return Classification(
-        label=label, reason=reason, matched_item_id=best_id, confidence=confidence
+        label=label, reason=reason, matched_item_id=best_id, confidence=confidence,
+        new_memory=new_memory,
     )
 
 

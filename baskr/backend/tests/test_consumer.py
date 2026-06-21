@@ -126,6 +126,59 @@ def test_classify_and_alert_skips_not_relevant(monkeypatch):
     assert consumer.alerts_fired_count() == before  # no new alert
 
 
+def test_classify_and_alert_writes_memory_once(monkeypatch):
+    """A relevant paper with new_memory writes one LTM, deduped on re-process."""
+    from app import memory as memmod
+    from app.models import Classification, Label, Profile
+
+    fake = fakeredis.FakeStrictRedis()
+    writes: list[tuple] = []
+    mock_profile = Profile(lab_id="t", niche="g", display_name="L", items=[])
+    mock_classification = Classification(
+        label=Label.ANSWERS,
+        reason="Answers the question.",
+        matched_item_id="oq_1",
+        confidence=0.9,
+        new_memory="Dietary fiber boosts microbiome diversity.",
+    )
+    monkeypatch.setattr("app.memory.load_profile", lambda s: mock_profile)
+    monkeypatch.setattr("app.engine.classify_paper", lambda p, pr, s: mock_classification)
+    monkeypatch.setattr("app.redis_client.get_client", lambda s=None: fake)
+    monkeypatch.setattr(memmod, "append_item",
+                        lambda kind, text, s: writes.append((kind, text)))
+
+    paper = PaperOut(
+        source="pubmed", source_id="555", title="Fiber paper",
+        abstract="Fiber increases diversity.", uid="pubmed:555",
+    )
+    consumer._classify_and_alert(paper, Settings())  # type: ignore
+    consumer._classify_and_alert(paper, Settings())  # re-process same paper
+
+    assert len(writes) == 1  # written exactly once (deduped)
+    assert writes[0][1] == "Dietary fiber boosts microbiome diversity."
+
+
+def test_classify_and_alert_no_memory_when_new_memory_none(monkeypatch):
+    """A relevant paper without a new_memory writes nothing back."""
+    from app import memory as memmod
+    from app.models import Classification, Label, Profile
+
+    writes: list[tuple] = []
+    mock_profile = Profile(lab_id="t", niche="g", display_name="L", items=[])
+    mock_classification = Classification(
+        label=Label.EXTENDS, reason="ok", matched_item_id="oq_1",
+        confidence=0.9, new_memory=None,
+    )
+    monkeypatch.setattr("app.memory.load_profile", lambda s: mock_profile)
+    monkeypatch.setattr("app.engine.classify_paper", lambda p, pr, s: mock_classification)
+    monkeypatch.setattr(memmod, "append_item",
+                        lambda kind, text, s: writes.append((kind, text)))
+
+    paper = PaperOut(source="arxiv", source_id="1", title="t", abstract="a", uid="arxiv:1")
+    consumer._classify_and_alert(paper, Settings())  # type: ignore
+    assert writes == []
+
+
 # ---------------------------------------------------------------------------
 # SSE endpoint test
 # ---------------------------------------------------------------------------
