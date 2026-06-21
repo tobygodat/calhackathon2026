@@ -10,19 +10,23 @@ Route surface (CORS open to the Vite dev origin, no auth):
     GET  /api/digest/{date}     -> list[DigestEntry] (frozen)
     POST /api/profile/memory    -> Profile           (stretch)
     POST /api/pipeline/search   -> PipelineSearchResult  (dev UI pipeline panel)
+    GET  /api/alerts/stream     -> SSE text/event-stream of classification alerts
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 from collections import Counter
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 
-from . import engine, memory, pipeline_state
+from . import consumer, engine, memory, pipeline_state
 from . import status as status_probe
 from .config import SETTINGS
 from .ingest import fetch_raw
@@ -38,7 +42,16 @@ from .models import (
 )
 from .redis_client import get_client, load_digest
 
-app = FastAPI(title="Baskr", version="0.0.1")
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):  # noqa: ANN001
+    """Start the stream consumer on boot; stop it on shutdown."""
+    consumer.start(SETTINGS)
+    yield
+    consumer.stop()
+
+
+app = FastAPI(title="Baskr", version="0.0.1", lifespan=_lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -184,3 +197,33 @@ def pipeline_search(body: PipelineSearchRequest) -> PipelineSearchResult:
     )
 
     return PipelineSearchResult(papers=papers, counts=counts, errors=errors)
+
+
+@app.get("/api/alerts/stream")
+async def alerts_stream():
+    """SSE endpoint: streams classification alerts fired by the background consumer.
+
+    Each event is a JSON object: {paper_title, label, reason, confidence, fired_at}.
+    Yields a heartbeat comment every second to keep the connection alive.
+    """
+
+    async def _generate():
+        sent = 0
+        while True:
+            alerts = consumer.get_recent_alerts()
+            if len(alerts) > sent:
+                for alert in alerts[sent:]:
+                    yield f"data: {json.dumps(alert)}\n\n"
+                sent = len(alerts)
+            else:
+                yield ": heartbeat\n\n"
+            await asyncio.sleep(1)
+
+    return StreamingResponse(
+        _generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )

@@ -89,6 +89,25 @@ def _probe_langcache(settings: Settings) -> dict[str, Any]:
     return {"ok": True, "detail": f"hit_rate={s['hit_rate']}", "hit_rate": s["hit_rate"]}
 
 
+def _probe_consumer() -> dict[str, Any]:
+    """Check whether the background stream consumer is alive."""
+    from . import consumer as _consumer  # noqa: PLC0415
+
+    hb = _consumer.last_heartbeat()
+    if hb is None:
+        return {"ok": False, "status": "unknown", "detail": "not started"}
+    import datetime  # noqa: PLC0415
+
+    try:
+        ts = datetime.datetime.fromisoformat(hb.replace("Z", "+00:00"))
+        age_s = (datetime.datetime.now(datetime.timezone.utc) - ts).total_seconds()
+        if age_s <= 10:
+            return {"ok": True, "detail": f"heartbeat {age_s:.1f}s ago"}
+        return {"ok": False, "status": "degraded", "detail": f"heartbeat {age_s:.0f}s ago (stale)"}
+    except Exception:  # noqa: BLE001
+        return {"ok": True, "detail": f"last heartbeat: {hb}"}
+
+
 def _probe_key_present(value: str | None) -> dict[str, Any]:
     """Presence-only probe for an API-key-gated service.
 
@@ -132,8 +151,8 @@ def build_connections(settings: Settings = SETTINGS) -> dict[str, dict[str, Any]
         "anthropic": _safe(_probe_key_present, settings.anthropic_api_key),
         # PubMed needs no key (NCBI key only raises rate limits); reachable by default.
         "pubmed": {"ok": True, "status": "unknown"},
-        # No background consumer running yet (Phase 0); report not-yet-up.
-        "consumer": {"ok": False, "status": "unknown", "detail": "not running"},
+        # Consumer: ok if heartbeat is fresh (updated within 10 s).
+        "consumer": _probe_consumer(),
     }
 
 
@@ -150,6 +169,22 @@ def _safe_float(probe, settings: Settings, default: float = 0.0) -> float:
         return float(probe(settings))
     except Exception:  # noqa: BLE001
         return default
+
+
+def _consumer_heartbeat() -> str | None:
+    try:
+        from . import consumer as _consumer  # noqa: PLC0415
+        return _consumer.last_heartbeat()
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _consumer_alerts_fired() -> int:
+    try:
+        from . import consumer as _consumer  # noqa: PLC0415
+        return _consumer.alerts_fired_count()
+    except Exception:  # noqa: BLE001
+        return 0
 
 
 def build_metrics(settings: Settings = SETTINGS) -> dict[str, Any]:
@@ -176,14 +211,14 @@ def build_metrics(settings: Settings = SETTINGS) -> dict[str, Any]:
     return {
         "papers_processed_last_hour": 0,
         "papers_processed_total": 0,
-        "alerts_fired_last_hour": 0,
         "corpus_index_docs": corpus_index_docs,
         "stream_length": stream_len,
         "stream_pending": 0,
         "memory_records": memory_records,
         "langcache_hit_rate": langcache_hit_rate,
         "last_processed_at": None,
-        "consumer_last_heartbeat": None,
+        "consumer_last_heartbeat": _consumer_heartbeat(),
+        "alerts_fired_last_hour": _consumer_alerts_fired(),
         # Pipeline-specific metrics (updated by POST /api/pipeline/search).
         "pipeline_source_counts": ps.get("pipeline_source_counts"),
         "pipeline_dedupe_ratio": ps.get("pipeline_dedupe_ratio"),

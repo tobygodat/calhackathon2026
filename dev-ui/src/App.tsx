@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { fetchStatus } from "./api";
 import { ActiveSearchPanel } from "./components/ActiveSearchPanel";
+import { AlertFeedPanel } from "./components/AlertFeedPanel";
 import { CapabilityPanel } from "./components/CapabilityPanel";
 import { ConnectionsPanel } from "./components/ConnectionsPanel";
 import { DigestHistoryPanel } from "./components/DigestHistoryPanel";
@@ -111,6 +112,9 @@ export default function App() {
             <LabProfilePanel />
             <ActiveSearchPanel />
             <DigestHistoryPanel />
+
+            {/* Agent loop alert feed */}
+            <AlertFeedPanel />
 
             {/* Infrastructure / pipeline panels */}
             <RedisSourcesPanel sources={status.redisSources} />
