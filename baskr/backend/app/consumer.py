@@ -30,6 +30,10 @@ log = logging.getLogger("baskr.consumer")
 # Maximum alerts kept in memory.
 _MAX_ALERTS = 100
 
+# Redis SET of paper ids whose memory has already been written back. Dedup must
+# survive restarts because the consumer re-reads the stream from 0-0 each start.
+_MEMORY_DEDUP_KEY = "baskr:memory_written"
+
 # Thread-safe alert store (most recent first is not guaranteed — appended in order).
 _alerts: deque[dict[str, Any]] = deque(maxlen=_MAX_ALERTS)
 _lock = threading.Lock()
@@ -160,8 +164,38 @@ def _classify_and_alert(paper: PaperOut, settings: Settings) -> None:
             classification.confidence,
             classification.reason[:60],
         )
+        _maybe_write_memory(paper, classification, settings)
     except Exception as exc:  # noqa: BLE001
         log.warning("Consumer: classify failed for %r: %s", paper.title[:40], exc)
+
+
+def _maybe_write_memory(paper: PaperOut, classification: Any,
+                        settings: Settings) -> None:
+    """Write back a long-term memory for a relevant paper — the "Remember" step.
+
+    Persists ``classification.new_memory`` as a profile FINDING so the lab context
+    compounds over time. No-op when the classifier proposed no memory. Deduped on
+    the paper's stable id so re-processing the stream never writes a memory twice;
+    the dedup mark is set only after a successful write so a failed write is retried.
+    """
+    text = (classification.new_memory or "").strip()
+    if not text:
+        return
+
+    from . import memory  # noqa: PLC0415  (avoid circular at import)
+    from .models import ProfileItemKind  # noqa: PLC0415
+    from .redis_client import get_client  # noqa: PLC0415
+
+    dedup_id = paper.uid or f"{paper.source}:{paper.source_id}"
+    try:
+        client = get_client(settings)
+        if client.sismember(_MEMORY_DEDUP_KEY, dedup_id):
+            return
+        memory.append_item(ProfileItemKind.FINDING, text, settings)
+        client.sadd(_MEMORY_DEDUP_KEY, dedup_id)
+        log.info("Consumer: REMEMBER %s — %s", dedup_id, text[:60])
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Consumer: memory write-back failed for %s: %s", dedup_id, exc)
 
 
 def _run_consumer(settings: Settings) -> None:

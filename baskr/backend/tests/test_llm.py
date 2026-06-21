@@ -82,3 +82,45 @@ def test_degraded_path_matches_a_profile_item() -> None:
     # Force confidence above threshold path by checking the raw degraded output.
     raw = llm._classify_degraded(user, _SETTINGS)
     assert raw.matched_item_id in {"oq_1", "fnd_1"}
+
+
+def test_degraded_sets_new_memory_when_matched() -> None:
+    """The 'Remember' step: a matched degraded result proposes a new_memory."""
+    system, user = _prompt()
+    raw = llm._classify_degraded(user, _SETTINGS)
+    assert raw.matched_item_id is not None
+    assert raw.new_memory is not None
+    assert raw.matched_item_id in raw.new_memory
+
+
+def test_threshold_collapse_drops_new_memory(monkeypatch) -> None:
+    """A sub-threshold (NOT_RELEVANT) result must not carry a new_memory."""
+    forced = Classification(
+        label=Label.ANSWERS,
+        reason="forced",
+        matched_item_id="oq_1",
+        confidence=0.10,  # below threshold 0.5
+        new_memory="should be dropped on collapse",
+    )
+    monkeypatch.setattr(llm, "_classify_degraded", lambda user, settings: forced)
+
+    system, user = _prompt()
+    result = llm.classify(system, user, _SETTINGS)
+    assert result.label is Label.NOT_RELEVANT
+    assert result.new_memory is None
+
+
+def test_high_confidence_preserves_new_memory(monkeypatch) -> None:
+    """A relevant result keeps the proposed new_memory for write-back."""
+    forced = Classification(
+        label=Label.EXTENDS,
+        reason="strong match",
+        matched_item_id="fnd_1",
+        confidence=0.80,
+        new_memory="Butyrate extends the SCFA/Treg finding.",
+    )
+    monkeypatch.setattr(llm, "_classify_degraded", lambda user, settings: forced)
+
+    system, user = _prompt()
+    result = llm.classify(system, user, _SETTINGS)
+    assert result.new_memory == "Butyrate extends the SCFA/Treg finding."
