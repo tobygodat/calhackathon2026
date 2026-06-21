@@ -20,7 +20,7 @@ import sys
 import time
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from .models import (
@@ -121,6 +121,24 @@ def digest_for_date(date: str) -> list[DigestEntry]:
         pass
 
     raise HTTPException(status_code=404, detail=f"No digest found for {date}")
+
+
+@app.get("/api/thumbnail")
+def thumbnail(source: str, url: str | None = None) -> Response:
+    """First page of the paper's PDF as a PNG, derived from source + url.
+
+    Returns 404 (never 500) when no thumbnail can be produced so the frontend
+    falls back to its placeholder skeleton.
+    """
+    from .thumbnails import render_thumbnail
+    png = render_thumbnail(source, url)
+    if png is None:
+        raise HTTPException(status_code=404, detail="No thumbnail available")
+    return Response(
+        content=png,
+        media_type="image/png",
+        headers={"Cache-Control": "public, max-age=604800"},
+    )
 
 
 @app.post("/api/profile/memory", response_model=Profile)

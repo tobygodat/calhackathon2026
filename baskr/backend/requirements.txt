@@ -7,3 +7,5 @@ openai
 anthropic
 # Paper fetching is provided by implementations/data_pipeline (stdlib + requests).
 requests
+# First-page thumbnail rendering for /api/thumbnail (self-contained wheels).
+pymupdf
