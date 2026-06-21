@@ -1,4 +1,3 @@
-# do not include in test1
 """Environment, model names, and thresholds for the Baskr backend (SPEC §11).
 
 This is the one place that reads ``os.environ``. Everything else takes a
@@ -56,6 +55,11 @@ class Settings:
     # --- lab / behavior ---
     lab_id: str = os.environ.get("BASKR_LAB_ID", "gut-microbiome-demo")
     relevance_threshold: float = float(os.environ.get("BASKR_RELEVANCE_THRESHOLD", "0.5"))
+    # Cutoff for the consumer's stage-1 vector-search gate (cosine of a paper vs the
+    # lab profile). Kept separate from relevance_threshold (which is the LLM-confidence
+    # cutoff, SPEC §7) because real OpenAI text-embedding cosines for *relevant* papers
+    # run ~0.35–0.60, so reusing 0.5 would drop genuinely on-topic papers at the gate.
+    vector_gate_threshold: float = float(os.environ.get("BASKR_VECTOR_GATE_THRESHOLD", "0.35"))
 
     # --- models ---
     # Embeddings: real OpenAI text-embedding-3-small when openai_api_key is set,

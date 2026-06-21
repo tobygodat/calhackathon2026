@@ -47,6 +47,24 @@ def _isolate_monitoring(tmp_path_factory, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# Embeddings isolation
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(autouse=True)
+def _offline_external_services(monkeypatch):
+    """Keep the whole suite offline/deterministic despite real keys in ``.env``.
+
+    ``Settings()`` now picks up a real ``OPENAI_API_KEY`` and the ``AGENT_MEMORY_*``
+    Iris credentials are in the environment, so without this any test that flows
+    into ``embed_text``/``embed_batch`` (engine pre-filter, memory semantic rank,
+    ingest) or ``memory.retrieve_relevant`` (Iris LTM recall) would make a real
+    network call. Patching the two single chokepoints forces the local keyless /
+    local-memory paths regardless of how a test constructs ``Settings``."""
+    monkeypatch.setattr("app.embeddings._should_use_openai", lambda *a, **k: False)
+    monkeypatch.setattr("app.agent_memory.is_enabled", lambda *a, **k: False)
+
+
+# ---------------------------------------------------------------------------
 # Settings
 # ---------------------------------------------------------------------------
 
@@ -55,6 +73,7 @@ def settings() -> Settings:
     """Settings with obviously-fake keys so no real API calls can succeed."""
     return Settings(
         anthropic_api_key="sk-ant-test",
+        openai_api_key=None,
         redis_url="redis://localhost:6379",
         lab_id="test-lab",
         relevance_threshold=0.5,
