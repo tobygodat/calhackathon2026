@@ -1,0 +1,86 @@
+[
+  {
+    "date": "2026-06-19",
+    "paper": {
+      "source": "pubmed",
+      "source_id": "40000001",
+      "title": "Dietary fiber intake increases gut microbiome alpha diversity in a randomized controlled trial",
+      "abstract": "Background: The effect of dietary fiber on gut microbial community structure remains debated. Methods: In a 12-week randomized controlled trial, 120 healthy adults were assigned to a high-fiber or control diet and stool 16S rRNA sequencing was performed. Results: The high-fiber arm showed a significant increase in Shannon alpha diversity and an expansion of short-chain fatty acid producing taxa including Faecalibacterium and Roseburia. We demonstrate that fiber supplementation establishes a measurable shift in community composition. Conclusion: These data confirm that dietary fiber increases gut microbiome diversity in healthy adults.",
+      "authors": [
+        "A. Researcher",
+        "B. Scientist",
+        "C. Analyst"
+      ],
+      "doi": "10.1000/sample.40000001",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/40000001/",
+      "journal": "Journal of Gut Microbiology",
+      "published": "2026-06-18",
+      "categories": [
+        "microbiome",
+        "nutrition"
+      ],
+      "uid": "doi:10.1000/sample.40000001"
+    },
+    "classification": {
+      "label": "ANSWERS",
+      "reason": "[deterministic stand-in] Best lexical match is profile item oq_2 (overlap 0.56).",
+      "matched_item_id": "oq_2",
+      "confidence": 0.556
+    }
+  },
+  {
+    "date": "2026-06-19",
+    "paper": {
+      "source": "pubmed",
+      "source_id": "40000002",
+      "title": "Butyrate-producing bacteria expand regulatory T cells in the murine colon",
+      "abstract": "Short-chain fatty acids, particularly butyrate, are key metabolites produced by gut commensals. Here we show that colonization of germ-free mice with butyrate-producing Clostridia establishes an expansion of colonic regulatory T cells and demonstrate enhanced mucosal tolerance. This extends prior findings on microbial immunomodulation and confirms a causal role for butyrate in Treg induction. Our results further build on the hypothesis that fiber-derived metabolites shape host immunity.",
+      "authors": [
+        "D. Immunologist",
+        "E. Microbiologist"
+      ],
+      "doi": "10.1000/sample.40000002",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/40000002/",
+      "journal": "Mucosal Immunology Reports",
+      "published": "2026-06-17",
+      "categories": [
+        "immunology",
+        "microbiome"
+      ],
+      "uid": "doi:10.1000/sample.40000002"
+    },
+    "classification": {
+      "label": "ANSWERS",
+      "reason": "[deterministic stand-in] Best lexical match is profile item asm_1 (overlap 0.78).",
+      "matched_item_id": "asm_1",
+      "confidence": 0.778
+    }
+  },
+  {
+    "date": "2026-06-19",
+    "paper": {
+      "source": "biorxiv",
+      "source_id": "2026.06.15.000003",
+      "title": "No effect of a two-week low-fiber diet on fecal microbial diversity contradicts prior reports",
+      "abstract": "We tested whether short-term fiber restriction alters the gut microbiome. Contrary to expectations, a two-week low-fiber intervention in 40 participants produced no significant change in alpha or beta diversity metrics. These findings challenge and refute the assumption that brief dietary shifts rapidly remodel the microbiome, and are unlike several earlier short-duration studies. The discrepancy may reflect insufficient washout or interindividual variation.",
+      "authors": [
+        "F. Preprint",
+        "G. Author"
+      ],
+      "doi": "10.1101/2026.06.15.000003",
+      "url": "https://www.biorxiv.org/content/10.1101/2026.06.15.000003",
+      "journal": null,
+      "published": "2026-06-15",
+      "categories": [
+        "microbiology"
+      ],
+      "uid": "doi:10.1101/2026.06.15.000003"
+    },
+    "classification": {
+      "label": "CONTRADICTS",
+      "reason": "[deterministic stand-in] Best lexical match is profile item oq_2 (overlap 0.50).",
+      "matched_item_id": "oq_2",
+      "confidence": 0.5
+    }
+  }
+]

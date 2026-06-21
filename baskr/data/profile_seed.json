@@ -1,22 +1,47 @@
 {
   "lab_id": "gut-microbiome-demo",
   "niche": "gut_microbiome",
-  "display_name": "Demo Lab",
+  "display_name": "Gut Microbiome Research Lab",
   "items": [
     {
       "id": "oq_1",
       "kind": "open_question",
-      "text": "PLACEHOLDER — lab's primary open question. Swap for real gut-microbiome content before the demo (SPEC §3)."
+      "text": "How do specific gut microbiome bacteria species influence host immune regulation and inflammatory responses in the colon?"
+    },
+    {
+      "id": "oq_2",
+      "kind": "open_question",
+      "text": "Which dietary fiber types most effectively increase alpha diversity of the gut microbiome and promote beneficial bacteria growth?"
+    },
+    {
+      "id": "oq_3",
+      "kind": "open_question",
+      "text": "What is the causal relationship between butyrate-producing bacteria and regulatory T-cell expansion in the gut?"
     },
     {
       "id": "asm_1",
       "kind": "assumption",
-      "text": "PLACEHOLDER — a working assumption the lab currently holds."
+      "text": "Short-chain fatty acids (SCFAs), particularly butyrate produced by gut bacteria, are key mediators of the gut-immune axis."
+    },
+    {
+      "id": "asm_2",
+      "kind": "assumption",
+      "text": "High dietary fiber intake promotes microbiome diversity and colonization by Bifidobacterium and Lactobacillus species."
     },
     {
       "id": "fnd_1",
       "kind": "finding",
-      "text": "PLACEHOLDER — a prior finding from the lab."
+      "text": "Germ-free mice colonized with Clostridiales bacteria showed significantly elevated Foxp3+ regulatory T cells, implicating gut microbiota in immune tolerance."
+    },
+    {
+      "id": "fnd_2",
+      "kind": "finding",
+      "text": "Prebiotic supplementation increased stool butyrate concentration and correlated with reduced intestinal permeability markers in a 12-week cohort study."
+    },
+    {
+      "id": "pe_1",
+      "kind": "planned_experiment",
+      "text": "16S rRNA sequencing of stool samples from dietary fiber intervention trial (n=80) to compare microbiome composition changes after 8 weeks."
     }
   ]
 }
