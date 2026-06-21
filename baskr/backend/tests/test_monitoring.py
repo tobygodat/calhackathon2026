@@ -207,3 +207,68 @@ class TestStatusFlipCounts:
         assert counts["backend"] == 1
         assert counts["redis"] == 2   # off then on
         assert counts["pubmed"] == 1  # on -> off once
+
+
+# ---------------------------------------------------------------------------
+# paper_ledger
+# ---------------------------------------------------------------------------
+
+class TestPaperLedger:
+    def test_empty_when_no_csv(self, csvs):
+        assert mon.paper_ledger() == []
+
+    def test_returns_newest_first_with_three_fields(self, csvs):
+        mon.record_papers([_paper(source="pubmed", source_id="1", title="Older")])
+        mon.record_papers([_paper(source="arxiv", source_id="2", title="Newer")])
+        ledger = mon.paper_ledger()
+        assert [r["title"] for r in ledger] == ["Newer", "Older"]
+        for r in ledger:
+            assert set(r) == {"title", "first_seen_at", "source"}
+            assert r["first_seen_at"].endswith("Z")
+        assert ledger[0]["source"] == "arxiv"
+
+
+# ---------------------------------------------------------------------------
+# seconds_since_last_new_paper
+# ---------------------------------------------------------------------------
+
+class TestSecondsSinceLastNewPaper:
+    def test_none_when_no_papers(self, csvs):
+        assert mon.seconds_since_last_new_paper() is None
+
+    def test_zero_ish_right_after_record(self, csvs):
+        mon.record_papers([_paper(source_id="1")])
+        secs = mon.seconds_since_last_new_paper()
+        assert isinstance(secs, int)
+        assert secs >= 0
+
+    def test_grows_with_now(self, csvs):
+        import time
+        mon.record_papers([_paper(source_id="1")])
+        secs = mon.seconds_since_last_new_paper(now=time.time() + 120)
+        assert secs >= 120
+
+
+# ---------------------------------------------------------------------------
+# recent_status_flips
+# ---------------------------------------------------------------------------
+
+class TestRecentStatusFlips:
+    def test_empty_when_no_log(self, csvs):
+        assert mon.recent_status_flips() == []
+
+    def test_chronological_with_three_fields(self, csvs):
+        mon.record_status({"redis": {"ok": True}})   # baseline (no row)
+        mon.record_status({"redis": {"ok": False}})  # off
+        mon.record_status({"redis": {"ok": True}})   # on
+        flips = mon.recent_status_flips()
+        assert [f["transition"] for f in flips] == ["off", "on"]
+        for f in flips:
+            assert set(f) == {"connection", "changed_at", "transition"}
+
+    def test_limit_keeps_most_recent(self, csvs):
+        mon.record_status({"redis": {"ok": True}})  # baseline
+        for i in range(5):
+            mon.record_status({"redis": {"ok": i % 2 == 0}})
+        flips = mon.recent_status_flips(limit=2)
+        assert len(flips) == 2

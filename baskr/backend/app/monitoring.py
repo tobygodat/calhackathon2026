@@ -176,6 +176,45 @@ def new_papers_last_hour(now: float | None = None) -> int:
     return sum(1 for t in _seen_times if t >= cutoff)
 
 
+def seconds_since_last_new_paper(now: float | None = None) -> int | None:
+    """Whole seconds since the most recent distinct paper was first seen.
+
+    Returns ``None`` if no paper has ever been recorded.
+    """
+    if _last_new_paper_iso is None:
+        return None
+    epoch = _iso_to_epoch(_last_new_paper_iso)
+    if epoch is None:
+        return None
+    if now is None:
+        now = datetime.now(timezone.utc).timestamp()
+    return max(0, int(now - epoch))
+
+
+def paper_ledger() -> list[dict]:
+    """Return the paper ledger newest-first.
+
+    Reads ``NEW_PAPERS_CSV`` and returns one dict per row with the three fields
+    ``{"title", "first_seen_at", "source"}``. Rows are stored chronologically, so
+    we reverse to get newest-first.
+    """
+    if not NEW_PAPERS_CSV.exists():
+        return []
+    rows: list[dict] = []
+    try:
+        with NEW_PAPERS_CSV.open("r", newline="", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                rows.append({
+                    "title": row.get("title", ""),
+                    "first_seen_at": row.get("first_seen_at", ""),
+                    "source": row.get("source", ""),
+                })
+    except Exception:
+        return []
+    rows.reverse()
+    return rows
+
+
 def status_flip_counts() -> dict[str, int]:
     """Number of status-change rows logged per connection (incl. ``backend``).
 
@@ -193,6 +232,34 @@ def status_flip_counts() -> dict[str, int]:
     except Exception:
         pass
     return counts
+
+
+def recent_status_flips(limit: int = 200) -> list[dict]:
+    """Recent status-flip events, chronological (oldest -> newest).
+
+    Reads ``STATUS_LOG_CSV`` and returns at most ``limit`` of the most recent
+    flips, each ``{"connection": str, "changed_at": str, "transition": "on"|"off"}``.
+    Drives the dev-ui comparison graph.
+    """
+    if not STATUS_LOG_CSV.exists():
+        return []
+    rows: list[dict] = []
+    try:
+        with STATUS_LOG_CSV.open("r", newline="", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                name = row.get("connection")
+                if not name:
+                    continue
+                rows.append({
+                    "connection": name,
+                    "changed_at": row.get("changed_at", ""),
+                    "transition": row.get("transition", ""),
+                })
+    except Exception:
+        return []
+    if limit is not None and len(rows) > limit:
+        rows = rows[-limit:]
+    return rows
 
 
 # ---------------------------------------------------------------------------
