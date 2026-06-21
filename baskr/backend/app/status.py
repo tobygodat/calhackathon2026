@@ -30,7 +30,6 @@ _CONNECTION_KEYS = (
     "streams",
     "agent_memory",
     "langcache",
-    "openai",
     "anthropic",
     "pubmed",
     "consumer",
@@ -147,7 +146,6 @@ def build_connections(settings: Settings = SETTINGS) -> dict[str, dict[str, Any]
         "streams": _gated(_probe_streams),
         "agent_memory": _gated(_probe_agent_memory),
         "langcache": _gated(_probe_langcache),
-        "openai": _safe(_probe_key_present, settings.openai_api_key),
         "anthropic": _safe(_probe_key_present, settings.anthropic_api_key),
         # PubMed needs no key (NCBI key only raises rate limits); reachable by default.
         "pubmed": {"ok": True, "status": "unknown"},

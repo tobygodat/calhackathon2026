@@ -18,7 +18,9 @@ export interface PipelineSourceMetrics {
 export interface SystemMetrics {
   filesProcessedLastHour: number;
   filesProcessedTotal: number;
-  connectionsHealthyPercent: number;
+  connectionsHealthy: number;
+  connectionsTotal: number;
+  newPapersSeen: number;
   alertsFiredLastHour: number;
   corpusIndexDocs: number;
   streamQueueLength: number;
@@ -44,9 +46,7 @@ export interface SystemStatus {
   source: "live";
 }
 
-// WARNING: NATURE SOURCE IS DISABLED — DO NOT RE-ENABLE WITHOUT EXPLICIT REQUEST
-// "nature" has been removed from PipelineSource. Do not add it back unless specifically asked.
-export type PipelineSource = "pubmed" | "arxiv" | "biorxiv"; // | "nature"
+export type PipelineSource = "pubmed" | "arxiv" | "biorxiv";
 
 export interface Paper {
   source: PipelineSource;
@@ -137,6 +137,7 @@ export interface StatusResponse {
   metrics: {
     papers_processed_last_hour?: number;
     papers_processed_total?: number;
+    new_papers_seen?: number;
     alerts_fired_last_hour?: number;
     corpus_index_docs?: number;
     stream_length?: number;

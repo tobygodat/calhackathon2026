@@ -10,8 +10,8 @@ import math
 from app.config import Settings
 from app.embeddings import embed_batch, embed_text
 
-# Force the degraded path explicitly (no key) so tests never hit the network.
-_SETTINGS = Settings(openai_api_key=None)
+# Keyless local embeddings — no network, no API key.
+_SETTINGS = Settings()
 
 
 def _norm(vec: list[float]) -> float:
@@ -35,7 +35,7 @@ def test_embed_text_distinct_inputs_differ() -> None:
 
 def test_embed_text_is_normalized() -> None:
     vec = embed_text("normalize me", _SETTINGS)
-    assert math.isclose(_norm(vec), 1.0, rel_tol=1e-9, abs_tol=1e-9)
+    assert math.isclose(_norm(vec), 1.0, rel_tol=1e-6, abs_tol=1e-6)
 
 
 def test_embed_batch_returns_n_vectors_each_1536() -> None:
@@ -44,7 +44,7 @@ def test_embed_batch_returns_n_vectors_each_1536() -> None:
     assert len(vecs) == len(texts)
     for v in vecs:
         assert len(v) == 1536
-        assert math.isclose(_norm(v), 1.0, rel_tol=1e-9, abs_tol=1e-9)
+        assert math.isclose(_norm(v), 1.0, rel_tol=1e-6, abs_tol=1e-6)
 
 
 def test_embed_batch_matches_embed_text() -> None:
