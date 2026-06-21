@@ -7,6 +7,7 @@ skipped otherwise; it runs against a dedicated, flushable test DB.
 from __future__ import annotations
 
 import json
+import os
 
 import pytest
 import redis as _redis
@@ -15,7 +16,8 @@ from app import memory, redis_client, seed_profile
 from app.config import Settings
 from app.seed_profile import SEED_PATH
 
-_TEST_REDIS_URL = "redis://localhost:6379/15"
+# Dedicated throwaway redis-stack on :6399 (RediSearch indexes only on DB 0).
+_TEST_REDIS_URL = os.environ.get("BASKR_TEST_REDIS_URL", "redis://localhost:6399/0")
 
 
 def _live_redis() -> bool:

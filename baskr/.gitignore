@@ -11,3 +11,6 @@ dist/
 
 # Env / secrets
 .env
+
+# Generated paper thumbnails (rendered on demand by /api/thumbnail)
+data/thumbnail_cache/

@@ -1,0 +1,34 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Hanken Grotesk as the app-wide default font. */
+@layer base {
+  html {
+    font-family: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  }
+}
+
+/* Search pill expand — handoff §"Search pill expand".
+   Width eases over .4s; colours over .2s. Icon stays pinned left via
+   justify-content:flex-start so it doesn't drift as the pill grows. */
+.search-pill {
+  width: 100px;
+  transition:
+    width 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.2s,
+    border-color 0.2s,
+    color 0.2s;
+}
+.search-pill:hover {
+  width: 300px;
+}
+
+/* Lab Context main-panel scrollbar — handoff §"Main Panel". */
+.lc-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+.lc-scroll::-webkit-scrollbar-thumb {
+  background: #34383d;
+  border-radius: 5px;
+}

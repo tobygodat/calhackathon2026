@@ -2,12 +2,10 @@ import { useState } from "react";
 import { fetchPipeline } from "../api";
 import type { Paper, PipelineSearchResult, PipelineSource } from "../types";
 
-// WARNING: NATURE SOURCE IS DISABLED — DO NOT RE-ENABLE WITHOUT EXPLICIT REQUEST
 const ALL_SOURCES: { id: PipelineSource; label: string }[] = [
   { id: "pubmed", label: "PubMed / NCBI" },
   { id: "arxiv", label: "arXiv" },
   { id: "biorxiv", label: "bioRxiv / medRxiv" },
-  // { id: "nature", label: "Nature / Springer" },  // DISABLED
 ];
 
 const DAY_OPTIONS = [1, 3, 7, 14, 30];
@@ -16,7 +14,6 @@ const SOURCE_COLORS: Record<PipelineSource, string> = {
   pubmed: "bg-blue-500/20 text-blue-400 border-blue-500/40",
   arxiv: "bg-purple-500/20 text-purple-400 border-purple-500/40",
   biorxiv: "bg-amber-500/20 text-amber-400 border-amber-500/40",
-  // nature: "bg-emerald-500/20 text-emerald-400 border-emerald-500/40",  // DISABLED
 };
 
 function SourceBadge({ source }: { source: PipelineSource }) {

@@ -1,6 +1,6 @@
 """Baskr data pipeline — multi-source ingestion of recent research papers.
 
-Sources: PubMed, arXiv, bioRxiv, Nature (Crossref / Springer Nature).
+Sources: PubMed, arXiv, bioRxiv.
 
 Quick start:
     from implementations.data_pipeline import DataPipeline

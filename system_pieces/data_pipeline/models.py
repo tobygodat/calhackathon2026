@@ -1,6 +1,6 @@
 """Normalized data model shared across every paper source.
 
-Every source adapter (PubMed, arXiv, bioRxiv, Nature) maps its native
+Every source adapter (PubMed, arXiv, bioRxiv) maps its native
 response onto a single `Paper` shape so the downstream engine — embedding +
 Redis vector search + the Claude classify prompt — never has to care where a
 paper came from.
@@ -19,7 +19,7 @@ class Paper:
     """A single research paper, normalized across all sources."""
 
     # --- identity ---
-    source: str                 # "pubmed" | "arxiv" | "biorxiv"  (| "nature" DISABLED)
+    source: str                 # "pubmed" | "arxiv" | "biorxiv"
     source_id: str              # PMID, arXiv id, DOI, etc. (unique within source)
     title: str
 
@@ -40,7 +40,7 @@ class Paper:
     @property
     def uid(self) -> str:
         """Stable global id. Prefer DOI (dedupes the same paper across
-        sources, e.g. a bioRxiv preprint later published in Nature)."""
+        sources, e.g. a bioRxiv preprint later published in a journal)."""
         if self.doi:
             return f"doi:{self.doi.lower()}"
         return f"{self.source}:{self.source_id}"
