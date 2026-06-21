@@ -8,6 +8,8 @@ test-only key prefixes and cleans up.
 
 from __future__ import annotations
 
+import os
+
 import pytest
 import redis as _redis
 
@@ -15,7 +17,8 @@ from app import ingest, redis_client, status as status_probe
 from app.config import Settings
 from app.models import PaperOut
 
-_TEST_REDIS_URL = "redis://localhost:6379/15"
+# Dedicated throwaway redis-stack on :6399 (RediSearch indexes only on DB 0).
+_TEST_REDIS_URL = os.environ.get("BASKR_TEST_REDIS_URL", "redis://localhost:6399/0")
 
 
 def _live_redis() -> bool:

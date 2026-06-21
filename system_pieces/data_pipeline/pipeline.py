@@ -2,7 +2,7 @@
 
 Fans a single query out across every configured source, normalizes the results
 into `Paper` objects, dedupes across sources (a bioRxiv preprint later published
-in Nature is one paper), and hands back a clean list ready for the engine:
+in a journal is one paper), and hands back a clean list ready for the engine:
 embed -> Redis vector search -> Claude classify.
 """
 

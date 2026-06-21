@@ -1,121 +1,238 @@
-"""Phase 3 UNIT tests for the classification engine (SPEC §6).
+"""Unit tests for the classification engine (app/engine.py).
 
-No live Redis required: profile retrieval and the LLM call are monkeypatched so the
-cap / sort / filter logic in ``active_search`` and ``run_digest`` is asserted
-precisely and deterministically.
+engine.py uses lazy imports from sibling modules, so we patch at the SOURCE:
+  - app.embeddings.embed_text   (engine does: from .embeddings import embed_text)
+  - app.llm.classify            (engine does: from .llm import classify)
+  - app.memory.retrieve_relevant
+  - app.prompts.build_prompt
+  - app.memory.load_profile
+  - app.ingest.fetch_recent
+  - app.engine.classify_paper   (module-level fn, safe to patch from callers)
 """
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock, patch
+
 import pytest
 
-from app import engine
-from app.models import (
-    Classification,
-    Label,
-    PaperOut,
-    Profile,
-    ProfileItem,
-    ProfileItemKind,
-)
+from app.engine import active_search, classify_paper, run_digest
+from app.models import Classification, Label, PaperOut, Profile, SearchHit
 
 
-def _paper(n: int) -> PaperOut:
-    return PaperOut(
-        source="pubmed",
-        source_id=str(n),
-        title=f"Paper {n} on gut microbiome and dietary fiber",
-        abstract=f"Abstract {n}: fiber changes microbial diversity in the gut.",
-        uid=f"pubmed:{n}",
+def _mock_cl(label: Label = Label.ANSWERS, confidence: float = 0.85) -> Classification:
+    return Classification(
+        label=label,
+        reason="Mocked reason.",
+        matched_item_id="oq_1",
+        confidence=confidence,
     )
 
 
-def _profile() -> Profile:
-    return Profile(
-        lab_id="test-lab",
-        niche="gut_microbiome",
-        display_name="Test Lab",
-        items=[
-            ProfileItem(id="oq_1", kind=ProfileItemKind.OPEN_QUESTION,
-                        text="Does dietary fiber change gut microbiome diversity?"),
-            ProfileItem(id="asm_1", kind=ProfileItemKind.ASSUMPTION,
-                        text="Fiber-derived short chain fatty acids shape the microbiome."),
-        ],
-    )
+def _papers(n: int) -> list[PaperOut]:
+    return [
+        PaperOut(source="pubmed", source_id=str(i), title=f"Paper {i}",
+                 abstract=f"Abstract for paper {i}.")
+        for i in range(n)
+    ]
 
 
-def test_classify_paper_returns_valid_classification(monkeypatch) -> None:
-    """The full embed->retrieve->prompt->classify chain yields a schema-valid result.
+class TestClassifyPaper:
+    def test_returns_classification(self, sample_paper, sample_profile, settings):
+        with patch("app.embeddings.embed_text", return_value=[0.1] * 1536):
+            with patch("app.memory.retrieve_relevant",
+                       return_value=sample_profile.items):
+                with patch("app.prompts.build_prompt",
+                           return_value=("system", "user")):
+                    with patch("app.llm.classify",
+                               return_value=_mock_cl()):
+                        result = classify_paper(sample_paper, sample_profile,
+                                                settings=settings)
+        assert isinstance(result, Classification)
+        assert result.label == Label.ANSWERS
 
-    Retrieval is stubbed (no Redis); the degraded llm.classify runs for real.
-    """
-    profile = _profile()
-    monkeypatch.setattr(engine.memory, "retrieve_relevant",
-                        lambda *a, **k: profile.items)
+    def test_uses_abstract_for_retrieval(self, sample_paper, sample_profile, settings):
+        """The engine no longer embeds locally; it passes the paper's abstract
+        to retrieve_relevant so the most relevant profile items are selected."""
+        captured = []
 
-    result = engine.classify_paper(_paper(1), profile)
+        def cap_retrieve(query, k=None, settings=None):
+            captured.append(query)
+            return sample_profile.items
 
-    assert isinstance(result, Classification)
-    assert isinstance(result.label, Label)
-    assert 0.0 <= result.confidence <= 1.0
-    assert isinstance(result.reason, str) and result.reason
+        with patch("app.memory.retrieve_relevant", side_effect=cap_retrieve):
+            with patch("app.prompts.build_prompt",
+                       return_value=("s", "u")):
+                with patch("app.llm.classify",
+                           return_value=_mock_cl()):
+                    classify_paper(sample_paper, sample_profile,
+                                   settings=settings)
+        # retrieve_relevant should have been called with the abstract
+        assert any(sample_paper.abstract in q for q in captured)
+
+    def test_no_abstract_skips_embed_uses_title_for_retrieve(
+        self, sample_paper_no_abstract, sample_profile, settings
+    ):
+        """When abstract is empty: embed_text is skipped; title is passed to
+        retrieve_relevant."""
+        captured_retrieve = []
+
+        def cap_retrieve(query, k=None, settings=None):
+            captured_retrieve.append(query)
+            return sample_profile.items
+
+        with patch("app.embeddings.embed_text") as mock_embed:
+            with patch("app.memory.retrieve_relevant", side_effect=cap_retrieve):
+                with patch("app.prompts.build_prompt", return_value=("s", "u")):
+                    with patch("app.llm.classify", return_value=_mock_cl()):
+                        result = classify_paper(sample_paper_no_abstract,
+                                                sample_profile, settings=settings)
+        assert isinstance(result, Classification)
+        mock_embed.assert_not_called()
+        assert any(sample_paper_no_abstract.title in q for q in captured_retrieve)
+
+    def test_retrieve_empty_passes_empty_to_build_prompt(
+        self, sample_paper, sample_profile, settings
+    ):
+        """When retrieve_relevant returns [], an empty list reaches build_prompt
+        (the engine does not silently substitute all profile items)."""
+        captured_items = []
+
+        def capture(items, paper):
+            captured_items.append(list(items))
+            return "s", "u"
+
+        with patch("app.embeddings.embed_text", return_value=[0.0] * 1536):
+            with patch("app.memory.retrieve_relevant", return_value=[]):
+                with patch("app.prompts.build_prompt", side_effect=capture):
+                    with patch("app.llm.classify", return_value=_mock_cl()):
+                        classify_paper(sample_paper, sample_profile,
+                                       settings=settings)
+        assert captured_items == [[]]
+
+    def test_classification_error_propagates(
+        self, sample_paper, sample_profile, settings
+    ):
+        with patch("app.embeddings.embed_text", return_value=[0.0] * 1536):
+            with patch("app.memory.retrieve_relevant",
+                       return_value=sample_profile.items):
+                with patch("app.prompts.build_prompt", return_value=("s", "u")):
+                    with patch("app.llm.classify",
+                               side_effect=ValueError("bad json")):
+                        with pytest.raises(ValueError):
+                            classify_paper(sample_paper, sample_profile,
+                                           settings=settings)
 
 
-def test_active_search_caps_filters_and_sorts(monkeypatch) -> None:
-    """active_search drops NOT_RELEVANT, sorts by confidence desc, caps at 5."""
-    profile = _profile()
-    # 8 staged papers feed the fetch step.
-    papers = [_paper(n) for n in range(8)]
-    monkeypatch.setattr(engine, "active_search", engine.active_search)  # explicit
-    monkeypatch.setattr("app.ingest.fetch_recent", lambda *a, **k: papers)
-    monkeypatch.setattr(engine.memory, "load_profile", lambda *a, **k: profile)
-    monkeypatch.setattr(engine.memory, "retrieve_relevant",
-                        lambda *a, **k: profile.items)
+class TestActiveSearch:
+    def test_returns_list_of_search_hits(self, settings):
+        cl = _mock_cl(Label.ANSWERS, 0.9)
+        with patch("app.memory.load_profile",
+                   return_value=MagicMock(items=[])):
+            with patch("app.ingest.fetch_recent", return_value=_papers(3)):
+                with patch("app.engine.classify_paper", return_value=cl):
+                    result = active_search("fiber", settings=settings)
+        assert isinstance(result, list)
+        assert all(isinstance(h, SearchHit) for h in result)
 
-    # Deterministic labels keyed by source_id:
-    #  - papers 0,1 -> NOT_RELEVANT (must be dropped)
-    #  - the rest -> relevant with descending confidence by index
-    def fake_classify(system, user, settings=None):
-        # Recover the paper index from the rendered title in the user prompt.
-        idx = next(n for n in range(8) if f"Paper {n} on" in user)
-        if idx < 2:
-            return Classification(label=Label.NOT_RELEVANT, reason="nope",
-                                  matched_item_id=None, confidence=0.1)
-        return Classification(label=Label.ANSWERS, reason=f"hit {idx}",
-                              matched_item_id="oq_1", confidence=0.9 - idx * 0.05)
+    def test_filters_not_relevant(self, settings):
+        papers = _papers(4)
+        classifications = [
+            _mock_cl(Label.ANSWERS, 0.9),
+            _mock_cl(Label.NOT_RELEVANT, 0.1),
+            _mock_cl(Label.EXTENDS, 0.7),
+            _mock_cl(Label.NOT_RELEVANT, 0.05),
+        ]
+        counter = [0]
 
-    monkeypatch.setattr(engine.llm, "classify", fake_classify)
+        def side(paper, profile, settings=None):
+            idx = counter[0]
+            counter[0] += 1
+            return classifications[idx]
 
-    hits = engine.active_search("does fiber change diversity?")
+        with patch("app.memory.load_profile",
+                   return_value=MagicMock(items=[])):
+            with patch("app.ingest.fetch_recent", return_value=papers):
+                with patch("app.engine.classify_paper", side_effect=side):
+                    result = active_search("query", settings=settings)
+        labels = [h.classification.label for h in result]
+        assert Label.NOT_RELEVANT not in labels
+        assert len(result) == 2
 
-    assert len(hits) <= 5
-    assert all(h.classification.label is not Label.NOT_RELEVANT for h in hits)
-    confidences = [h.classification.confidence for h in hits]
-    assert confidences == sorted(confidences, reverse=True)
-    # 6 relevant papers (idx 2..7) but capped at 5; top hit is idx 2 (highest conf).
-    assert len(hits) == 5
-    assert hits[0].classification.confidence == pytest.approx(0.9 - 2 * 0.05)
+    def test_capped_at_active_search_cap(self, settings):
+        cl = _mock_cl(Label.ANSWERS, 0.9)
+        with patch("app.memory.load_profile",
+                   return_value=MagicMock(items=[])):
+            with patch("app.ingest.fetch_recent", return_value=_papers(20)):
+                with patch("app.engine.classify_paper", return_value=cl):
+                    result = active_search("query", settings=settings)
+        assert len(result) <= settings.active_search_cap
+
+    def test_sorted_by_confidence_descending(self, settings):
+        papers = _papers(3)
+        confidences = [0.6, 0.95, 0.75]
+        counter = [0]
+
+        def side(paper, profile, settings=None):
+            idx = counter[0]
+            counter[0] += 1
+            return _mock_cl(Label.ANSWERS, confidences[idx])
+
+        with patch("app.memory.load_profile",
+                   return_value=MagicMock(items=[])):
+            with patch("app.ingest.fetch_recent", return_value=papers):
+                with patch("app.engine.classify_paper", side_effect=side):
+                    result = active_search("query", settings=settings)
+        confs = [h.classification.confidence for h in result]
+        assert confs == sorted(confs, reverse=True)
+
+    def test_empty_papers_returns_empty(self, settings):
+        with patch("app.memory.load_profile",
+                   return_value=MagicMock(items=[])):
+            with patch("app.ingest.fetch_recent", return_value=[]):
+                result = active_search("query", settings=settings)
+        assert result == []
 
 
-def test_run_digest_keeps_only_relevant(monkeypatch) -> None:
-    """run_digest classifies each paper and keeps non-NOT_RELEVANT hits."""
-    profile = _profile()
-    papers = [_paper(n) for n in range(4)]
-    monkeypatch.setattr(engine.memory, "load_profile", lambda *a, **k: profile)
-    monkeypatch.setattr(engine.memory, "retrieve_relevant",
-                        lambda *a, **k: profile.items)
+class TestRunDigest:
+    def test_returns_list_of_search_hits(self, settings, sample_paper):
+        cl = _mock_cl(Label.ANSWERS, 0.85)
+        with patch("app.memory.load_profile",
+                   return_value=MagicMock(items=[])):
+            with patch("app.engine.classify_paper", return_value=cl):
+                result = run_digest("2024-03-15", [sample_paper],
+                                    settings=settings)
+        assert len(result) == 1
+        assert result[0].paper.title == sample_paper.title
 
-    def fake_classify(system, user, settings=None):
-        idx = next(n for n in range(4) if f"Paper {n} on" in user)
-        if idx % 2 == 0:
-            return Classification(label=Label.NOT_RELEVANT, reason="nope",
-                                  matched_item_id=None, confidence=0.1)
-        return Classification(label=Label.EXTENDS, reason=f"hit {idx}",
-                              matched_item_id="asm_1", confidence=0.8)
+    def test_filters_not_relevant(self, settings):
+        papers = _papers(2)
+        cls = [_mock_cl(Label.ANSWERS, 0.8), _mock_cl(Label.NOT_RELEVANT, 0.1)]
+        counter = [0]
 
-    monkeypatch.setattr(engine.llm, "classify", fake_classify)
+        def side(paper, profile, settings=None):
+            idx = counter[0]; counter[0] += 1
+            return cls[idx]
 
-    hits = engine.run_digest("2026-06-21", papers)
+        with patch("app.memory.load_profile",
+                   return_value=MagicMock(items=[])):
+            with patch("app.engine.classify_paper", side_effect=side):
+                result = run_digest("2024-03-15", papers, settings=settings)
+        assert len(result) == 1
+        assert result[0].paper.source_id == "0"
 
-    assert len(hits) == 2  # idx 1 and 3
-    assert all(h.classification.label is Label.EXTENDS for h in hits)
+    def test_empty_papers_list(self, settings):
+        with patch("app.memory.load_profile",
+                   return_value=MagicMock(items=[])):
+            result = run_digest("2024-03-15", [], settings=settings)
+        assert result == []
+
+    def test_all_relevant_returned_without_cap(self, settings):
+        """run_digest has no cap (unlike active_search)."""
+        papers = _papers(10)
+        cl = _mock_cl(Label.EXTENDS, 0.7)
+        with patch("app.memory.load_profile",
+                   return_value=MagicMock(items=[])):
+            with patch("app.engine.classify_paper", return_value=cl):
+                result = run_digest("2024-03-15", papers, settings=settings)
+        assert len(result) == 10
