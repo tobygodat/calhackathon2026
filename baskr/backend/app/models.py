@@ -23,10 +23,10 @@ class ProfileItemKind(str, Enum):
 
 
 class Label(str, Enum):
-    ANSWERS = "ANSWERS"
+    VERIFIES = "VERIFIES"
     CONTRADICTS = "CONTRADICTS"
     EXTENDS = "EXTENDS"
-    NOT_RELEVANT = "NOT_RELEVANT"
+    TANGENTIAL = "TANGENTIAL"
     SCOOP = "SCOOP"  # stretch label, only with planned_experiment items
 
 

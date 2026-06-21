@@ -22,7 +22,7 @@
       "uid": "doi:10.1000/sample.40000001"
     },
     "classification": {
-      "label": "ANSWERS",
+      "label": "VERIFIES",
       "reason": "[deterministic stand-in] Best lexical match is profile item oq_2 (overlap 0.56).",
       "matched_item_id": "oq_2",
       "confidence": 0.556
@@ -50,7 +50,7 @@
       "uid": "doi:10.1000/sample.40000002"
     },
     "classification": {
-      "label": "ANSWERS",
+      "label": "VERIFIES",
       "reason": "[deterministic stand-in] Best lexical match is profile item asm_1 (overlap 0.78).",
       "matched_item_id": "asm_1",
       "confidence": 0.778

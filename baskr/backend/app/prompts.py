@@ -13,7 +13,7 @@ SYSTEM_PROMPT = (
     "You are Baskr, a research-watch agent for a gut microbiome lab. Given the "
     "lab's context profile and one new paper abstract, decide the single most "
     "important relationship between them. Be discerning — most papers are "
-    "NOT_RELEVANT."
+    "TANGENTIAL."
 )
 
 
@@ -22,9 +22,9 @@ SYSTEM_PROMPT = (
 _JSON_INSTRUCTION = (
     "Return strict JSON only:\n"
     "{\n"
-    '  "label": "ANSWERS|CONTRADICTS|EXTENDS|NOT_RELEVANT",\n'
+    '  "label": "VERIFIES|CONTRADICTS|EXTENDS|TANGENTIAL",\n'
     '  "reason": "<one sentence why it matters to THIS lab, naming the matched item>",\n'
-    '  "matched_item_id": "<profile item id, or null if NOT_RELEVANT>",\n'
+    '  "matched_item_id": "<profile item id, or null if TANGENTIAL>",\n'
     '  "confidence": <0.0-1.0>\n'
     "}"
 )

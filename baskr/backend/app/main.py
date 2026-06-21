@@ -133,7 +133,7 @@ def _digest_summary(date: str, raw_json: str) -> DigestSummary | None:
         if not isinstance(entries, list) or not entries:
             return None
         labels = [e["classification"]["label"] for e in entries if "classification" in e]
-        top_label = Counter(labels).most_common(1)[0][0] if labels else "NOT_RELEVANT"
+        top_label = Counter(labels).most_common(1)[0][0] if labels else "TANGENTIAL"
         return DigestSummary(date=date, count=len(entries), top_label=top_label)
     except Exception:  # noqa: BLE001
         return None

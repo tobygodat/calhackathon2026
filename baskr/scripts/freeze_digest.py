@@ -1,7 +1,7 @@
 """Offline: generate + write N days of frozen digest (SPEC §6 Digest path).
 
 For each target date: fetch recent papers (via the existing ``DataPipeline``),
-run ``engine.run_digest``, keep non-NOT_RELEVANT hits, and persist them to both
+run ``engine.run_digest``, keep non-TANGENTIAL hits, and persist them to both
 ``baskr:digest:{date}`` (Redis) and ``data/digest_frozen/{date}.json``.
 
 Run:  python scripts/freeze_digest.py [--days 5] [--query "gut microbiome"]

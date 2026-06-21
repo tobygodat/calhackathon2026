@@ -96,10 +96,10 @@ export interface Profile {
 }
 
 export type Label =
-  | "ANSWERS"
+  | "VERIFIES"
   | "CONTRADICTS"
   | "EXTENDS"
-  | "NOT_RELEVANT"
+  | "TANGENTIAL"
   | "SCOOP";
 
 export interface Classification {

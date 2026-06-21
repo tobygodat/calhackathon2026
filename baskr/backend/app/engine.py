@@ -50,7 +50,7 @@ def classify_paper(paper: PaperOut, profile: Profile,
 
 def active_search(question: str, settings: Settings = SETTINGS) -> list[SearchHit]:
     """Live surface: fetch recent papers via ``DataPipeline``, classify each against
-    the profile (``memory.load_profile``), return non-NOT_RELEVANT hits sorted by
+    the profile (``memory.load_profile``), return non-TANGENTIAL hits sorted by
     confidence, capped at ``active_search_cap``.
 
         from system_pieces.data_pipeline import DataPipeline
@@ -63,7 +63,7 @@ def active_search(question: str, settings: Settings = SETTINGS) -> list[SearchHi
     hits: list[SearchHit] = []
     for paper in papers:
         classification = classify_paper(paper, profile, settings)
-        if classification.label is Label.NOT_RELEVANT:
+        if classification.label is Label.TANGENTIAL:
             continue
         hits.append(SearchHit(paper=paper, classification=classification))
 
@@ -73,14 +73,14 @@ def active_search(question: str, settings: Settings = SETTINGS) -> list[SearchHi
 
 def run_digest(date: str, papers: list[PaperOut],
                settings: Settings = SETTINGS) -> list[SearchHit]:
-    """Offline surface: classify a day's papers, keep non-NOT_RELEVANT hits.
+    """Offline surface: classify a day's papers, keep non-TANGENTIAL hits.
     Callers persist the result (see scripts/freeze_digest.py)."""
     profile = memory.load_profile(settings)
 
     hits: list[SearchHit] = []
     for paper in papers:
         classification = classify_paper(paper, profile, settings)
-        if classification.label is Label.NOT_RELEVANT:
+        if classification.label is Label.TANGENTIAL:
             continue
         hits.append(SearchHit(paper=paper, classification=classification))
 

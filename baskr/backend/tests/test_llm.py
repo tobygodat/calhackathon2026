@@ -44,9 +44,9 @@ def test_label_is_always_valid_enum() -> None:
 
 
 def test_low_confidence_collapses_to_not_relevant(monkeypatch) -> None:
-    """A forced low-confidence result must collapse to NOT_RELEVANT / matched=None."""
+    """A forced low-confidence result must collapse to TANGENTIAL / matched=None."""
     forced = Classification(
-        label=Label.ANSWERS,
+        label=Label.VERIFIES,
         reason="forced high-relevance label but low confidence",
         matched_item_id="oq_1",
         confidence=0.10,  # below threshold 0.5
@@ -55,7 +55,7 @@ def test_low_confidence_collapses_to_not_relevant(monkeypatch) -> None:
 
     system, user = _prompt()
     result = llm.classify(system, user, _SETTINGS)
-    assert result.label is Label.NOT_RELEVANT
+    assert result.label is Label.TANGENTIAL
     assert result.matched_item_id is None
     assert result.confidence == 0.10  # confidence itself is preserved
 

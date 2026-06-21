@@ -14,7 +14,7 @@ Sends the system+user prompt from ``prompts.build_prompt`` and parses a strict
 
 In BOTH paths the threshold-collapse rule is applied centrally in
 ``_apply_threshold``: a confidence below ``settings.relevance_threshold`` collapses
-``label`` to ``NOT_RELEVANT`` and ``matched_item_id`` to ``None``.
+``label`` to ``TANGENTIAL`` and ``matched_item_id`` to ``None``.
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ _CLASSIFY_TOOL = {
         "properties": {
             "label": {
                 "type": "string",
-                "enum": ["ANSWERS", "CONTRADICTS", "EXTENDS", "NOT_RELEVANT"],
+                "enum": ["VERIFIES", "CONTRADICTS", "EXTENDS", "TANGENTIAL"],
             },
             "reason": {
                 "type": "string",
@@ -44,7 +44,7 @@ _CLASSIFY_TOOL = {
             },
             "matched_item_id": {
                 "type": ["string", "null"],
-                "description": "Profile item id, or null if NOT_RELEVANT.",
+                "description": "Profile item id, or null if TANGENTIAL.",
             },
             "confidence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
         },
@@ -62,14 +62,14 @@ _EXTEND_CUES = ("extend", "further", "additional", "novel", "expand", "build on"
 
 
 def _apply_threshold(c: Classification, settings: Settings) -> Classification:
-    """Collapse low-confidence results to NOT_RELEVANT (SPEC §7).
+    """Collapse low-confidence results to TANGENTIAL (SPEC §7).
 
     Applied to BOTH the real and degraded paths so the threshold rule lives in
     exactly one place.
     """
     if c.confidence < settings.relevance_threshold:
         return Classification(
-            label=Label.NOT_RELEVANT,
+            label=Label.TANGENTIAL,
             reason=c.reason,
             matched_item_id=None,
             confidence=c.confidence,
@@ -162,7 +162,7 @@ def _classify_degraded(user: str, settings: Settings) -> Classification:
     if any(cue in paper_lc for cue in _CONTRADICT_CUES):
         label = Label.CONTRADICTS
     elif any(cue in paper_lc for cue in _ANSWER_CUES):
-        label = Label.ANSWERS
+        label = Label.VERIFIES
     elif any(cue in paper_lc for cue in _EXTEND_CUES):
         label = Label.EXTENDS
     else:

@@ -56,7 +56,7 @@ export function ActiveSearchPanel() {
         <div className="space-y-3">
           {hits.length === 0 ? (
             <p className="text-xs text-slate-500">
-              No relevant papers found (all classified NOT_RELEVANT or no papers fetched).
+              No relevant papers found (all tangential, or no papers fetched).
               Try seeding the profile and ingest first.
             </p>
           ) : (

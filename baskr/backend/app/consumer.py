@@ -8,7 +8,7 @@ Loop:
     XREAD baskr:new_papers (blocking, 2 s timeout)
     for each entry:
         parse → embed abstract → retrieve_relevant (top-k memory)
-        → classify_paper → if NOT_RELEVANT: skip, else push alert
+        → classify_paper → if TANGENTIAL: skip, else push alert
     update heartbeat
 """
 
@@ -138,8 +138,8 @@ def _classify_and_alert(paper: PaperOut, settings: Settings) -> None:
     try:
         profile = memory.load_profile(settings)
         classification = classify_paper(paper, profile, settings)
-        if classification.label.value == "NOT_RELEVANT":
-            log.debug("Consumer: %s → NOT_RELEVANT (skip)", paper.title[:40])
+        if classification.label.value == "TANGENTIAL":
+            log.debug("Consumer: %s → TANGENTIAL (skip)", paper.title[:40])
             return
 
         alert = {

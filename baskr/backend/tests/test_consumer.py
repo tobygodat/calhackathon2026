@@ -56,7 +56,7 @@ def test_parse_paper_returns_paperout():
 
 def test_push_alert_increments_count():
     initial = consumer.alerts_fired_count()
-    consumer._push_alert({"label": "ANSWERS", "paper_title": "test"})  # type: ignore
+    consumer._push_alert({"label": "VERIFIES", "paper_title": "test"})  # type: ignore
     assert consumer.alerts_fired_count() == initial + 1
 
 
@@ -82,7 +82,7 @@ def test_classify_and_alert_fires_for_relevant_paper(monkeypatch):
         ],
     )
     mock_classification = Classification(
-        label=Label.ANSWERS,
+        label=Label.VERIFIES,
         reason="Paper directly answers the question.",
         matched_item_id="oq_1",
         confidence=0.85,
@@ -104,12 +104,12 @@ def test_classify_and_alert_fires_for_relevant_paper(monkeypatch):
 
 
 def test_classify_and_alert_skips_not_relevant(monkeypatch):
-    """NOT_RELEVANT papers must NOT push to the alert store."""
+    """TANGENTIAL papers must NOT push to the alert store."""
     from app.models import Classification, Label, Profile
 
     mock_profile = Profile(lab_id="t", niche="g", display_name="L", items=[])
     mock_classification = Classification(
-        label=Label.NOT_RELEVANT, reason="Unrelated.", matched_item_id=None, confidence=0.1
+        label=Label.TANGENTIAL, reason="Unrelated.", matched_item_id=None, confidence=0.1
     )
     monkeypatch.setattr("app.memory.load_profile", lambda s: mock_profile)
     monkeypatch.setattr("app.engine.classify_paper", lambda p, pr, s: mock_classification)

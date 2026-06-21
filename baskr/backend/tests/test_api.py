@@ -54,7 +54,7 @@ _SAMPLE_PAPER = PaperOut(
 )
 
 _SAMPLE_CLASSIFICATION = Classification(
-    label=Label.ANSWERS,
+    label=Label.VERIFIES,
     reason="Paper directly answers the profile question.",
     matched_item_id="oq_1",
     confidence=0.85,
@@ -85,7 +85,7 @@ def test_post_search_returns_list_of_hits(monkeypatch):
     assert isinstance(data, list)
     assert len(data) == 1
     assert data[0]["paper"]["title"] == _SAMPLE_PAPER.title
-    assert data[0]["classification"]["label"] == "ANSWERS"
+    assert data[0]["classification"]["label"] == "VERIFIES"
 
 
 def test_post_search_returns_empty_for_no_hits(monkeypatch):
@@ -127,7 +127,7 @@ def test_digest_history_with_filesystem_digest(monkeypatch, tmp_path):
     assert len(data) == 1
     assert data[0]["date"] == "2026-06-21"
     assert data[0]["count"] == 1
-    assert data[0]["top_label"] == "ANSWERS"
+    assert data[0]["top_label"] == "VERIFIES"
 
 
 # --- GET /api/digest/{date} ---------------------------------------------------
