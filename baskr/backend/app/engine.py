@@ -23,14 +23,20 @@ from .config import SETTINGS, Settings
 from .models import Classification, PaperOut, Profile, SearchHit
 
 
-def classify_paper(paper: PaperOut, settings: Settings = SETTINGS) -> Classification:
-    """Run the 5-step engine for one paper against the lab profile (SPEC §6)."""
+def classify_paper(paper: PaperOut, profile: Profile,
+                   settings: Settings = SETTINGS) -> Classification:
+    """Run the 5-step engine for one paper against the lab profile (SPEC §6).
+
+    ``profile`` is the lab context (from ``memory.load_profile``); step 2 narrows it
+    to the semantic top-k via ``memory.retrieve_relevant`` before prompting.
+    """
     raise NotImplementedError
 
 
 def active_search(question: str, settings: Settings = SETTINGS) -> list[SearchHit]:
-    """Live surface: fetch recent papers via ``DataPipeline``, classify each, return
-    non-NOT_RELEVANT hits sorted by confidence, capped at ``active_search_cap``.
+    """Live surface: fetch recent papers via ``DataPipeline``, classify each against
+    the profile (``memory.load_profile``), return non-NOT_RELEVANT hits sorted by
+    confidence, capped at ``active_search_cap``.
 
         from implementations.data_pipeline import DataPipeline
     """

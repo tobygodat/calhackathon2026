@@ -23,7 +23,7 @@ def freeze_day(date: str) -> int:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Pre-generate frozen Baskr digests.")
     parser.add_argument("--days", type=int, default=5, help="number of recent days")
-    parser.parse_args()
+    args = parser.parse_args()  # noqa: F841  (consumed once implemented)
     raise NotImplementedError
 
 

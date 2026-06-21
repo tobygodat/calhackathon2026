@@ -5,6 +5,7 @@ import type {
   DigestEntry,
   DigestSummary,
   Profile,
+  ProfileItemKind,
   SearchHit,
 } from "./types";
 
@@ -21,5 +22,13 @@ export async function getDigestHistory(): Promise<DigestSummary[]> {
 }
 
 export async function getDigest(_date: string): Promise<DigestEntry[]> {
+  throw new Error("not implemented");
+}
+
+// Stretch: POST /api/profile/memory (SPEC §8).
+export async function addMemory(
+  _kind: ProfileItemKind,
+  _text: string
+): Promise<Profile> {
   throw new Error("not implemented");
 }

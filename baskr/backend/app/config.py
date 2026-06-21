@@ -16,6 +16,9 @@ class Settings:
     openai_api_key: str | None = os.environ.get("OPENAI_API_KEY")
     anthropic_api_key: str | None = os.environ.get("ANTHROPIC_API_KEY")
     redis_url: str = os.environ.get("REDIS_URL", "redis://localhost:6379")
+    # Surfaced for completeness (SPEC §11). Paper fetching is delegated to
+    # implementations/data_pipeline, which reads NCBI_API_KEY from its own Config.
+    ncbi_api_key: str | None = os.environ.get("NCBI_API_KEY")
 
     # --- lab / behavior ---
     lab_id: str = os.environ.get("BASKR_LAB_ID", "gut-microbiome-demo")

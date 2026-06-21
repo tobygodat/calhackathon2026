@@ -7,12 +7,12 @@ interface PaperCardProps {
   classification: Classification;
 }
 
-export default function PaperCard(_props: PaperCardProps) {
-  // TODO: render title, citation, <LabelBadge>, reason, and source link.
+export default function PaperCard({ paper, classification }: PaperCardProps) {
+  // TODO: render title, citation, reason, and source link.
   return (
     <article className="rounded-md border border-neutral-800 p-3">
-      <LabelBadge label="NOT_RELEVANT" />
-      <p className="text-sm text-neutral-500">TODO: paper card.</p>
+      <LabelBadge label={classification.label} />
+      <p className="text-sm text-neutral-500">TODO: {paper.title}</p>
     </article>
   );
 }
