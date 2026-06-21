@@ -30,6 +30,24 @@ class Label(str, Enum):
     SCOOP = "SCOOP"  # stretch label, only with planned_experiment items
 
 
+# Sort priority for relationship labels — lower rank = surfaced first (SPEC §6).
+# CONTRADICTS -> VERIFIES -> EXTENDS -> TANGENTIAL, with the stretch SCOOP label
+# slotted just after CONTRADICTS. Single source of truth for engine._sort_hits.
+_LABEL_ORDER: tuple[Label, ...] = (
+    Label.CONTRADICTS,
+    Label.SCOOP,
+    Label.VERIFIES,
+    Label.EXTENDS,
+    Label.TANGENTIAL,
+)
+LABEL_PRIORITY: dict[Label, int] = {label: i for i, label in enumerate(_LABEL_ORDER)}
+
+
+def label_rank(label: Label) -> int:
+    """Sort rank for ``label`` (lower = higher priority); unknown labels sort last."""
+    return LABEL_PRIORITY.get(label, len(_LABEL_ORDER))
+
+
 # --- profile (SPEC §5.1) ----------------------------------------------------
 
 class ProfileItem(BaseModel):

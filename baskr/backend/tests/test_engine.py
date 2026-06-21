@@ -61,61 +61,94 @@ def test_classify_paper_returns_valid_classification(monkeypatch) -> None:
     assert isinstance(result.reason, str) and result.reason
 
 
-def test_active_search_caps_filters_and_sorts(monkeypatch) -> None:
-    """active_search drops TANGENTIAL, sorts by confidence desc, caps at 5."""
+def test_active_search_sorts_by_label_priority(monkeypatch) -> None:
+    """active_search surfaces all four sorts ordered CONTRADICTS->VERIFIES->EXTENDS
+    ->TANGENTIAL (confidence desc within each); a high-confidence TANGENTIAL still
+    sorts last."""
     profile = _profile()
-    # 8 staged papers feed the fetch step.
-    papers = [_paper(n) for n in range(8)]
-    monkeypatch.setattr(engine, "active_search", engine.active_search)  # explicit
+    papers = [_paper(n) for n in range(5)]
     monkeypatch.setattr("app.ingest.fetch_recent", lambda *a, **k: papers)
     monkeypatch.setattr(engine.memory, "load_profile", lambda *a, **k: profile)
     monkeypatch.setattr(engine.memory, "retrieve_relevant",
                         lambda *a, **k: profile.items)
 
-    # Deterministic labels keyed by source_id:
-    #  - papers 0,1 -> TANGENTIAL (must be dropped)
-    #  - the rest -> relevant with descending confidence by index
+    labels = {
+        0: (Label.TANGENTIAL, 0.95),   # highest confidence, lowest priority
+        1: (Label.CONTRADICTS, 0.40),
+        2: (Label.VERIFIES, 0.90),
+        3: (Label.EXTENDS, 0.70),
+        4: (Label.VERIFIES, 0.60),
+    }
+
     def fake_classify(system, user, settings=None):
-        # Recover the paper index from the rendered title in the user prompt.
-        idx = next(n for n in range(8) if f"Paper {n} on" in user)
-        if idx < 2:
-            return Classification(label=Label.TANGENTIAL, reason="nope",
-                                  matched_item_id=None, confidence=0.1)
-        return Classification(label=Label.VERIFIES, reason=f"hit {idx}",
-                              matched_item_id="oq_1", confidence=0.9 - idx * 0.05)
+        idx = next(n for n in range(5) if f"Paper {n} on" in user)
+        label, conf = labels[idx]
+        return Classification(label=label, reason=f"hit {idx}",
+                              matched_item_id=None, confidence=conf)
 
     monkeypatch.setattr(engine.llm, "classify", fake_classify)
 
     hits = engine.active_search("does fiber change diversity?")
 
-    assert len(hits) <= 5
-    assert all(h.classification.label is not Label.TANGENTIAL for h in hits)
+    assert [h.classification.label for h in hits] == [
+        Label.CONTRADICTS, Label.VERIFIES, Label.VERIFIES, Label.EXTENDS,
+        Label.TANGENTIAL,
+    ]
+    # within VERIFIES, higher confidence first
+    assert hits[1].classification.confidence == pytest.approx(0.90)
+    assert hits[2].classification.confidence == pytest.approx(0.60)
+    # the 0.95-confidence TANGENTIAL is surfaced last, below the 0.40 CONTRADICTS
+    assert hits[-1].classification.label is Label.TANGENTIAL
+
+
+def test_active_search_caps_at_active_search_cap(monkeypatch) -> None:
+    """active_search caps the sorted result at settings.active_search_cap."""
+    profile = _profile()
+    papers = [_paper(n) for n in range(8)]
+    monkeypatch.setattr("app.ingest.fetch_recent", lambda *a, **k: papers)
+    monkeypatch.setattr(engine.memory, "load_profile", lambda *a, **k: profile)
+    monkeypatch.setattr(engine.memory, "retrieve_relevant",
+                        lambda *a, **k: profile.items)
+
+    def fake_classify(system, user, settings=None):
+        idx = next(n for n in range(8) if f"Paper {n} on" in user)
+        return Classification(label=Label.VERIFIES, reason=f"hit {idx}",
+                              matched_item_id="oq_1", confidence=0.9 - idx * 0.05)
+
+    monkeypatch.setattr(engine.llm, "classify", fake_classify)
+
+    hits = engine.active_search("q")
+
+    assert len(hits) == 5  # active_search_cap
     confidences = [h.classification.confidence for h in hits]
     assert confidences == sorted(confidences, reverse=True)
-    # 6 relevant papers (idx 2..7) but capped at 5; top hit is idx 2 (highest conf).
-    assert len(hits) == 5
-    assert hits[0].classification.confidence == pytest.approx(0.9 - 2 * 0.05)
 
 
-def test_run_digest_keeps_only_relevant(monkeypatch) -> None:
-    """run_digest classifies each paper and keeps non-TANGENTIAL hits."""
+def test_run_digest_surfaces_all_four_sorted(monkeypatch) -> None:
+    """run_digest keeps ALL papers (incl TANGENTIAL) sorted by label priority."""
     profile = _profile()
     papers = [_paper(n) for n in range(4)]
     monkeypatch.setattr(engine.memory, "load_profile", lambda *a, **k: profile)
     monkeypatch.setattr(engine.memory, "retrieve_relevant",
                         lambda *a, **k: profile.items)
 
+    labels = {
+        0: Label.TANGENTIAL,
+        1: Label.EXTENDS,
+        2: Label.CONTRADICTS,
+        3: Label.VERIFIES,
+    }
+
     def fake_classify(system, user, settings=None):
         idx = next(n for n in range(4) if f"Paper {n} on" in user)
-        if idx % 2 == 0:
-            return Classification(label=Label.TANGENTIAL, reason="nope",
-                                  matched_item_id=None, confidence=0.1)
-        return Classification(label=Label.EXTENDS, reason=f"hit {idx}",
-                              matched_item_id="asm_1", confidence=0.8)
+        return Classification(label=labels[idx], reason=f"hit {idx}",
+                              matched_item_id=None, confidence=0.8)
 
     monkeypatch.setattr(engine.llm, "classify", fake_classify)
 
     hits = engine.run_digest("2026-06-21", papers)
 
-    assert len(hits) == 2  # idx 1 and 3
-    assert all(h.classification.label is Label.EXTENDS for h in hits)
+    assert len(hits) == 4  # nothing dropped — all four sorts surfaced
+    assert [h.classification.label for h in hits] == [
+        Label.CONTRADICTS, Label.VERIFIES, Label.EXTENDS, Label.TANGENTIAL,
+    ]

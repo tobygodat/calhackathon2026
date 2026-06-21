@@ -22,7 +22,7 @@ from __future__ import annotations
 from . import llm, memory
 from .config import SETTINGS, Settings
 from .embeddings import embed_text
-from .models import Classification, Label, PaperOut, Profile, SearchHit
+from .models import Classification, PaperOut, Profile, SearchHit, label_rank
 from .prompts import build_prompt
 
 
@@ -48,10 +48,21 @@ def classify_paper(paper: PaperOut, profile: Profile,
     return llm.classify(system, user, settings)
 
 
+def _sort_hits(hits: list[SearchHit]) -> list[SearchHit]:
+    """Sort hits across the four relationship labels: by label priority
+    (``label_rank``: CONTRADICTS -> VERIFIES -> EXTENDS -> TANGENTIAL; SCOOP just
+    after CONTRADICTS), then by confidence descending within each label."""
+    return sorted(
+        hits,
+        key=lambda h: (label_rank(h.classification.label),
+                       -h.classification.confidence),
+    )
+
+
 def active_search(question: str, settings: Settings = SETTINGS) -> list[SearchHit]:
     """Live surface: fetch recent papers via ``DataPipeline``, classify each against
-    the profile (``memory.load_profile``), return non-TANGENTIAL hits sorted by
-    confidence, capped at ``active_search_cap``.
+    the profile (``memory.load_profile``), and return them sorted across all four
+    relationship labels (``_sort_hits``), capped at ``active_search_cap``.
 
         from system_pieces.data_pipeline import DataPipeline
     """
@@ -60,28 +71,22 @@ def active_search(question: str, settings: Settings = SETTINGS) -> list[SearchHi
     papers = fetch_recent(question, settings.active_search_days, settings=settings)
     profile = memory.load_profile(settings)
 
-    hits: list[SearchHit] = []
-    for paper in papers:
-        classification = classify_paper(paper, profile, settings)
-        if classification.label is Label.TANGENTIAL:
-            continue
-        hits.append(SearchHit(paper=paper, classification=classification))
-
-    hits.sort(key=lambda h: h.classification.confidence, reverse=True)
-    return hits[: settings.active_search_cap]
+    hits = [
+        SearchHit(paper=paper, classification=classify_paper(paper, profile, settings))
+        for paper in papers
+    ]
+    return _sort_hits(hits)[: settings.active_search_cap]
 
 
 def run_digest(date: str, papers: list[PaperOut],
                settings: Settings = SETTINGS) -> list[SearchHit]:
-    """Offline surface: classify a day's papers, keep non-TANGENTIAL hits.
-    Callers persist the result (see scripts/freeze_digest.py)."""
+    """Offline surface: classify a day's papers and return all four sorts ordered by
+    ``_sort_hits`` (CONTRADICTS -> VERIFIES -> EXTENDS -> TANGENTIAL, confidence desc
+    within each). Callers persist the result (see scripts/freeze_digest.py)."""
     profile = memory.load_profile(settings)
 
-    hits: list[SearchHit] = []
-    for paper in papers:
-        classification = classify_paper(paper, profile, settings)
-        if classification.label is Label.TANGENTIAL:
-            continue
-        hits.append(SearchHit(paper=paper, classification=classification))
-
-    return hits
+    hits = [
+        SearchHit(paper=paper, classification=classify_paper(paper, profile, settings))
+        for paper in papers
+    ]
+    return _sort_hits(hits)
