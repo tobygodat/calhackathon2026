@@ -63,7 +63,7 @@ const USER_NAME = "Toby"; // TODO: from auth/user profile
 export default function WelcomeDashboard() {
   return (
     <div className="flex h-screen flex-col">
-      <TopNav />
+      <TopNav active="dashboard" />
 
       <main className="flex flex-1 flex-col items-center overflow-y-auto bg-page-bg px-[72px] pb-[72px] pt-16">
         {/* Greeting */}
