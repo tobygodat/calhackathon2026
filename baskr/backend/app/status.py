@@ -170,6 +170,9 @@ def build_metrics(settings: Settings = SETTINGS) -> dict[str, Any]:
         lambda s: _langcache_stats(s)["hit_rate"], settings
     )
 
+    from . import pipeline_state  # noqa: PLC0415  (lazy: avoid circular at import)
+
+    ps = pipeline_state.get()
     return {
         "papers_processed_last_hour": 0,
         "papers_processed_total": 0,
@@ -181,6 +184,12 @@ def build_metrics(settings: Settings = SETTINGS) -> dict[str, Any]:
         "langcache_hit_rate": langcache_hit_rate,
         "last_processed_at": None,
         "consumer_last_heartbeat": None,
+        # Pipeline-specific metrics (updated by POST /api/pipeline/search).
+        "pipeline_source_counts": ps.get("pipeline_source_counts"),
+        "pipeline_dedupe_ratio": ps.get("pipeline_dedupe_ratio"),
+        "pipeline_last_query": ps.get("pipeline_last_query"),
+        "pipeline_last_result_count": ps.get("pipeline_last_result_count"),
+        "pipeline_source_errors": ps.get("pipeline_source_errors"),
     }
 
 

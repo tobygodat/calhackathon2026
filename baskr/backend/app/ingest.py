@@ -109,6 +109,44 @@ def fetch_recent(query: str, days: int, max_per_source: int = 50,
     return staged
 
 
+def fetch_raw(query: str, days: int, max_per_source: int = 50,
+              settings: Settings = SETTINGS,
+              ) -> tuple[list[PaperOut], dict[str, int], dict[str, str]]:
+    """Like ``fetch_recent`` but also returns per-source counts and errors.
+
+    Returns (papers, counts, errors). On pipeline failure/timeout the staged
+    fallback fires and errors will carry the failure reason.
+    """
+    try:
+        from system_pieces.data_pipeline import DataPipeline  # noqa: PLC0415
+
+        pipeline = DataPipeline()
+
+        def _run():
+            return pipeline.fetch(query, days=days, max_per_source=max_per_source)
+
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(_run)
+            result = future.result(timeout=_FETCH_TIMEOUT_S)
+
+        if result.papers:
+            papers = [_adapt_paper(p) for p in result.papers]
+            log.info("fetch_raw: %d papers via datapipeline", len(papers))
+            return papers, dict(result.counts), dict(result.errors)
+        log.warning("fetch_raw: datapipeline returned 0 papers -> staged_fallback")
+        errors: dict[str, str] = {**result.errors, "pipeline": "returned 0 papers"}
+    except FutureTimeout:
+        log.warning("fetch_raw: datapipeline timed out -> staged_fallback")
+        errors = {"pipeline": f"timeout after {_FETCH_TIMEOUT_S:.0f}s"}
+    except Exception as exc:  # noqa: BLE001
+        log.warning("fetch_raw: datapipeline failed (%s) -> staged_fallback", exc)
+        errors = {"pipeline": f"{type(exc).__name__}: {exc}"}
+
+    staged = _load_staged_papers()
+    log.info("fetch_raw: %d papers via staged_fallback", len(staged))
+    return staged, {"staged": len(staged)}, errors
+
+
 def ingest(query: str, days: int, settings: Settings = SETTINGS) -> int:
     """Fetch -> embed abstracts -> upsert into the RedisVL index. Returns count."""
     papers = fetch_recent(query, days, settings=settings)

@@ -9,37 +9,46 @@ Route surface (CORS open to the Vite dev origin, no auth):
     GET  /api/digest/history    -> list[DigestSummary]
     GET  /api/digest/{date}     -> list[DigestEntry] (frozen)
     POST /api/profile/memory    -> Profile           (stretch)
-
-Routes are thin: they validate, call into engine/memory/redis_client, and shape the
-response. Handler bodies are stubs.
+    POST /api/pipeline/search   -> PipelineSearchResult  (dev UI pipeline panel)
 """
 
 from __future__ import annotations
 
+import json
+from collections import Counter
+from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+from . import engine, memory, pipeline_state
 from . import status as status_probe
+from .config import SETTINGS
+from .ingest import fetch_raw
 from .models import (
     DigestEntry,
     DigestSummary,
     MemoryWriteRequest,
+    PipelineSearchRequest,
+    PipelineSearchResult,
     Profile,
     SearchHit,
     SearchRequest,
 )
+from .redis_client import get_client, load_digest
 
 app = FastAPI(title="Baskr", version="0.0.1")
 
-# TODO: tighten to the actual Vite dev origin(s) at build time.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Filesystem path to frozen digest files relative to the baskr/ root.
+_FROZEN_DIR = Path(__file__).resolve().parents[2] / "data" / "digest_frozen"
 
 
 @app.get("/api/health")
@@ -59,25 +68,119 @@ def status() -> dict[str, Any]:
 
 @app.get("/api/profile", response_model=Profile)
 def get_profile() -> Profile:
-    raise NotImplementedError
+    return memory.load_profile(SETTINGS)
 
 
 @app.post("/api/search", response_model=list[SearchHit])
 def search(body: SearchRequest) -> list[SearchHit]:
-    raise NotImplementedError
+    """Live search: fetch recent papers, classify against the lab profile, return top hits."""
+    return engine.active_search(body.question, SETTINGS)
 
 
 @app.get("/api/digest/history", response_model=list[DigestSummary])
 def digest_history() -> list[DigestSummary]:
-    raise NotImplementedError
+    """Scan Redis and the frozen-digest directory; return one summary per date."""
+    summaries: dict[str, DigestSummary] = {}
+
+    # 1. Redis-backed digests.
+    try:
+        client = get_client(SETTINGS)
+        for key in client.keys(f"{SETTINGS.digest_key_prefix}*"):
+            raw_key = key.decode() if isinstance(key, bytes) else key
+            date = raw_key[len(SETTINGS.digest_key_prefix):]
+            raw = load_digest(date, SETTINGS)
+            if raw is None:
+                continue
+            summary = _digest_summary(date, raw)
+            if summary:
+                summaries[date] = summary
+    except Exception:  # noqa: BLE001  (degraded: no Redis)
+        pass
+
+    # 2. Filesystem frozen digests (offline / seed fallback).
+    if _FROZEN_DIR.exists():
+        for path in _FROZEN_DIR.glob("*.json"):
+            date = path.stem
+            if date in summaries:
+                continue
+            try:
+                summary = _digest_summary(date, path.read_text())
+                if summary:
+                    summaries[date] = summary
+            except Exception:  # noqa: BLE001
+                continue
+
+    return sorted(summaries.values(), key=lambda s: s.date, reverse=True)
+
+
+def _digest_summary(date: str, raw_json: str) -> DigestSummary | None:
+    """Parse raw digest JSON and return a DigestSummary, or None on error."""
+    try:
+        entries = json.loads(raw_json)
+        if not isinstance(entries, list) or not entries:
+            return None
+        labels = [e["classification"]["label"] for e in entries if "classification" in e]
+        top_label = Counter(labels).most_common(1)[0][0] if labels else "NOT_RELEVANT"
+        return DigestSummary(date=date, count=len(entries), top_label=top_label)
+    except Exception:  # noqa: BLE001
+        return None
 
 
 @app.get("/api/digest/{date}", response_model=list[DigestEntry])
 def digest_for_date(date: str) -> list[DigestEntry]:
-    raise NotImplementedError
+    """Return the frozen digest for ``date`` (YYYY-MM-DD). 404 if not found."""
+    # 1. Try Redis.
+    try:
+        raw = load_digest(date, SETTINGS)
+        if raw is not None:
+            return [DigestEntry(**e) for e in json.loads(raw)]
+    except Exception:  # noqa: BLE001
+        pass
+
+    # 2. Try filesystem.
+    frozen_path = _FROZEN_DIR / f"{date}.json"
+    if frozen_path.exists():
+        try:
+            return [DigestEntry(**e) for e in json.loads(frozen_path.read_text())]
+        except Exception:  # noqa: BLE001
+            pass
+
+    raise HTTPException(status_code=404, detail=f"No digest found for {date!r}")
 
 
 @app.post("/api/profile/memory", response_model=Profile)
 def add_memory(body: MemoryWriteRequest) -> Profile:
-    """Stretch: append a finding to the profile so memory visibly grows."""
-    raise NotImplementedError
+    """Append a finding to the lab profile (stretch: memory grows visibly)."""
+    return memory.append_item(body.kind, body.text, SETTINGS)
+
+
+@app.post("/api/pipeline/search", response_model=PipelineSearchResult)
+def pipeline_search(body: PipelineSearchRequest) -> PipelineSearchResult:
+    """Dev UI pipeline panel: raw paper fetch from configured sources.
+
+    Returns papers + per-source counts + any source errors. Also updates the
+    pipeline metrics that ``/status`` surfaces.
+    """
+    papers, counts, errors = fetch_raw(
+        body.query, body.days, body.max_results, SETTINGS
+    )
+
+    # Filter by requested sources if the caller specified a subset.
+    if body.sources:
+        wanted = set(body.sources)
+        papers = [p for p in papers if p.source in wanted]
+
+    # Compute cross-source dedupe ratio: sum(pre-dedup per-source counts) vs final count.
+    pre_dedup = sum(v for k, v in counts.items() if k != "staged")
+    post_dedup = len(papers)
+    dedupe_ratio = (pre_dedup - post_dedup) / pre_dedup if pre_dedup > 0 else 0.0
+
+    pipeline_state.update(
+        query=body.query,
+        result_count=post_dedup,
+        source_counts=counts,
+        source_errors=errors,
+        dedupe_ratio=dedupe_ratio,
+    )
+
+    return PipelineSearchResult(papers=papers, counts=counts, errors=errors)

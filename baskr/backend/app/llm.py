@@ -147,13 +147,16 @@ def _classify_degraded(user: str, settings: Settings) -> Classification:
         item_tokens = _tokens(item_text)
         if not item_tokens or not paper_tokens:
             continue
-        overlap = len(item_tokens & paper_tokens) / len(item_tokens | paper_tokens)
+        # Asymmetric recall: fraction of profile-item tokens found in the paper.
+        # Symmetric Jaccard penalises long abstracts unfairly; this asks "how much
+        # of the profile item does the paper cover?" which is what we care about.
+        overlap = len(item_tokens & paper_tokens) / len(item_tokens)
         if overlap > best_overlap:
             best_overlap = overlap
             best_id = item_id
 
-    # Confidence scales with overlap; cap below 1.0 to read as a heuristic.
-    confidence = round(min(best_overlap * 2.0, 0.95), 3)
+    # Confidence directly equals the recall score; cap below 1.0.
+    confidence = round(min(best_overlap, 0.95), 3)
 
     paper_lc = paper.lower()
     if any(cue in paper_lc for cue in _CONTRADICT_CUES):
