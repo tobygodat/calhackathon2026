@@ -55,6 +55,40 @@ def _probe_redis(settings: Settings) -> dict[str, Any]:
         return {"ok": False, "detail": f"{type(exc).__name__}: {exc}"[:200]}
 
 
+def _probe_redisvl(settings: Settings) -> dict[str, Any]:
+    """Does the papers index exist? Report doc count in ``detail``."""
+    from .redis_client import ensure_papers_index  # noqa: PLC0415
+
+    index = ensure_papers_index(settings)
+    info = index.info()
+    docs = int(info.get("num_docs", 0))
+    return {"ok": True, "detail": f"{docs} docs", "num_docs": docs}
+
+
+def _probe_streams(settings: Settings) -> dict[str, Any]:
+    """XLEN of the new-papers stream."""
+    from .streams import NEW_PAPERS_STREAM, stream_length  # noqa: PLC0415
+
+    length = stream_length(settings)
+    return {"ok": True, "detail": f"{NEW_PAPERS_STREAM}={length}", "stream_length": length}
+
+
+def _probe_agent_memory(settings: Settings) -> dict[str, Any]:
+    """Profile item count in the lab Agent Memory namespace."""
+    from .memory import profile_item_count  # noqa: PLC0415
+
+    count = profile_item_count(settings)
+    return {"ok": True, "detail": f"{count} items", "memory_records": count}
+
+
+def _probe_langcache(settings: Settings) -> dict[str, Any]:
+    """LangCache reachability + tracked hit-rate (Redis-backed stub)."""
+    from .langcache import stats  # noqa: PLC0415
+
+    s = stats(settings)
+    return {"ok": True, "detail": f"hit_rate={s['hit_rate']}", "hit_rate": s["hit_rate"]}
+
+
 def _probe_key_present(value: str | None) -> dict[str, Any]:
     """Presence-only probe for an API-key-gated service (no network call)."""
     if value:
@@ -75,21 +109,19 @@ def build_connections(settings: Settings = SETTINGS) -> dict[str, dict[str, Any]
     redis_status = _safe(_probe_redis, settings)
     redis_ok = bool(redis_status.get("ok"))
 
-    # RedisVL / Streams / Agent Memory / LangCache all ride on the Redis
-    # connection; their real readiness checks land in later phases. For now they
-    # inherit Redis reachability so the dashboard reflects the live dependency.
-    redis_backed = (
-        {"ok": True, "status": "unknown"}
-        if redis_ok
-        else {"ok": False, "status": "unknown", "detail": "redis unavailable"}
-    )
+    # Per-feature probes hit Redis directly; gate them on basic reachability so a
+    # downed Redis doesn't stall each probe on its own timeout.
+    def _gated(probe) -> dict[str, Any]:
+        if not redis_ok:
+            return {"ok": False, "status": "unknown", "detail": "redis unavailable"}
+        return _safe(probe, settings)
 
     return {
         "redis": redis_status,
-        "redisvl": dict(redis_backed),
-        "streams": dict(redis_backed),
-        "agent_memory": dict(redis_backed),
-        "langcache": dict(redis_backed),
+        "redisvl": _gated(_probe_redisvl),
+        "streams": _gated(_probe_streams),
+        "agent_memory": _gated(_probe_agent_memory),
+        "langcache": _gated(_probe_langcache),
         "openai": _safe(_probe_key_present, settings.openai_api_key),
         "anthropic": _safe(_probe_key_present, settings.anthropic_api_key),
         # PubMed needs no key (NCBI key only raises rate limits); reachable by default.
@@ -99,17 +131,48 @@ def build_connections(settings: Settings = SETTINGS) -> dict[str, dict[str, Any]
     }
 
 
+def _safe_int(probe, settings: Settings, default: int = 0) -> int:
+    """Run a counter probe, degrading any error to ``default``."""
+    try:
+        return int(probe(settings))
+    except Exception:  # noqa: BLE001  (metrics never raise)
+        return default
+
+
+def _safe_float(probe, settings: Settings, default: float = 0.0) -> float:
+    try:
+        return float(probe(settings))
+    except Exception:  # noqa: BLE001
+        return default
+
+
 def build_metrics(settings: Settings = SETTINGS) -> dict[str, Any]:
-    """Pipeline metrics. Degraded defaults until real wiring lands (later phases)."""
+    """Pipeline metrics. Redis-backed counters are now real (Phase 1); the
+    agent-loop counters (papers processed / alerts / heartbeats) stay stubbed until
+    the consumer wires in (Phase 6)."""
+    from .langcache import stats as _langcache_stats  # noqa: PLC0415
+    from .memory import profile_item_count  # noqa: PLC0415
+    from .redis_client import ensure_papers_index  # noqa: PLC0415
+    from .streams import stream_length  # noqa: PLC0415
+
+    corpus_index_docs = _safe_int(
+        lambda s: ensure_papers_index(s).info().get("num_docs", 0), settings
+    )
+    stream_len = _safe_int(stream_length, settings)
+    memory_records = _safe_int(profile_item_count, settings)
+    langcache_hit_rate = _safe_float(
+        lambda s: _langcache_stats(s)["hit_rate"], settings
+    )
+
     return {
         "papers_processed_last_hour": 0,
         "papers_processed_total": 0,
         "alerts_fired_last_hour": 0,
-        "corpus_index_docs": 0,
-        "stream_length": 0,
+        "corpus_index_docs": corpus_index_docs,
+        "stream_length": stream_len,
         "stream_pending": 0,
-        "memory_records": 0,
-        "langcache_hit_rate": 0.0,
+        "memory_records": memory_records,
+        "langcache_hit_rate": langcache_hit_rate,
         "last_processed_at": None,
         "consumer_last_heartbeat": None,
     }
