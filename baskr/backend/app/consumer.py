@@ -27,10 +27,17 @@ from .models import PaperOut
 
 log = logging.getLogger("baskr.consumer")
 
-# Maximum alerts kept in memory.
+# Maximum alerts kept in memory (degraded-mode fallback store).
 _MAX_ALERTS = 100
 
+# Durable, cross-instance alert log. Each fired alert is one XADD entry whose
+# single ``data`` field holds the full alert JSON. Approximate MAXLEN keeps the
+# stream bounded without an exact (and slower) trim on every write.
+ALERTS_STREAM = "baskr:alerts"
+_ALERTS_MAXLEN = 500
+
 # Thread-safe alert store (most recent first is not guaranteed — appended in order).
+# Used as a fallback when Redis is unreachable so local dev / tests still see alerts.
 _alerts: deque[dict[str, Any]] = deque(maxlen=_MAX_ALERTS)
 _lock = threading.Lock()
 
@@ -71,10 +78,95 @@ def stop() -> None:
 
 
 def get_recent_alerts(n: int = 20) -> list[dict[str, Any]]:
-    """Return the most recent N alerts (thread-safe snapshot)."""
+    """Return the most recent N alerts (thread-safe snapshot of the local store)."""
     with _lock:
         alerts = list(_alerts)
     return alerts[-n:]
+
+
+# ---------------------------------------------------------------------------
+# Redis-backed alert stream (durable + cross-instance)
+# ---------------------------------------------------------------------------
+
+def _alert_client(settings: Settings = SETTINGS) -> Any:
+    """Return a live Redis client for the alerts stream, or None if unreachable.
+
+    Pings once so callers can cheaply decide between the Redis path and the
+    in-process deque fallback without catching connection errors mid-stream."""
+    try:
+        from .redis_client import get_client  # noqa: PLC0415
+        client = get_client(settings)
+        client.ping()
+        return client
+    except Exception as exc:  # noqa: BLE001
+        log.debug("Alerts: Redis unavailable (%s) — using deque fallback", exc)
+        return None
+
+
+def write_alert_to_stream(alert: dict[str, Any], settings: Settings = SETTINGS,
+                          client: Any = None) -> str | None:
+    """XADD an alert to ``baskr:alerts`` with approximate MAXLEN trim.
+
+    Returns the generated stream id, or None when Redis is unreachable (the
+    caller has already mirrored the alert into the in-process deque)."""
+    if client is None:
+        client = _alert_client(settings)
+    if client is None:
+        return None
+    try:
+        msg_id = client.xadd(
+            ALERTS_STREAM,
+            {"data": json.dumps(alert)},
+            maxlen=_ALERTS_MAXLEN,
+            approximate=True,
+        )
+        return msg_id.decode() if isinstance(msg_id, bytes) else msg_id
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Alerts: XADD to %s failed: %s", ALERTS_STREAM, exc)
+        return None
+
+
+def read_alerts_stream(last_id: str = "0", block_ms: int = 0, count: int = 100,
+                       settings: Settings = SETTINGS,
+                       client: Any = None) -> tuple[str, list[dict[str, Any]]]:
+    """XREAD alerts newer than ``last_id`` from ``baskr:alerts``.
+
+    ``last_id="0"`` replays from the start of the stream. ``block_ms`` of 0 means
+    a non-blocking read; a positive value blocks for that many milliseconds.
+    Returns ``(new_last_id, [alert_dict, ...])``; on an unreachable Redis returns
+    ``(last_id, [])`` so the caller can fall back."""
+    if client is None:
+        client = _alert_client(settings)
+    if client is None:
+        return last_id, []
+    try:
+        entries = client.xread({ALERTS_STREAM: last_id},
+                               block=(block_ms or None), count=count)
+    except Exception as exc:  # noqa: BLE001
+        # A blocking XREAD whose idle wait exceeds the client socket_timeout raises
+        # a socket TimeoutError — that just means "no new alerts yet", so surface an
+        # empty batch and let the SSE caller heartbeat. Real outages (ConnectionError)
+        # re-raise so the caller can fall back to the deque.
+        if block_ms and "timeout" in type(exc).__name__.lower():
+            return last_id, []
+        raise
+    alerts: list[dict[str, Any]] = []
+    new_last = last_id
+    for _stream, messages in entries or []:
+        for msg_id, fields in messages:
+            new_last = msg_id.decode() if isinstance(msg_id, bytes) else msg_id
+            raw = fields.get("data")
+            if raw is None:
+                raw = fields.get(b"data")
+            if isinstance(raw, bytes):
+                raw = raw.decode()
+            if not raw:
+                continue
+            try:
+                alerts.append(json.loads(raw))
+            except Exception:  # noqa: BLE001
+                continue
+    return new_last, alerts
 
 
 def last_heartbeat() -> str | None:
@@ -101,6 +193,9 @@ def _push_alert(alert: dict[str, Any]) -> None:
     with _lock:
         _alerts.append(alert)
         _alerts_fired += 1
+    # Mirror to the durable, cross-instance Redis stream. A Redis outage leaves
+    # the alert in the local deque so degraded mode still surfaces it.
+    write_alert_to_stream(alert, SETTINGS)
 
 
 def _parse_paper(fields: dict[bytes | str, bytes | str]) -> PaperOut | None:

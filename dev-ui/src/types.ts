@@ -9,18 +9,35 @@ export interface ServiceConnection {
   detail?: string;
 }
 
-export interface PipelineSourceMetrics {
-  papers_fetched: number;
-  last_fetch_at?: string;
-  error?: string;
+export interface LedgerEntry {
+  title: string;
+  first_seen_at: string;
+  source: string;
+}
+
+export interface IntakeResult {
+  streamed: number;
+  recorded: number;
+  skipped: number;
+  errors: Record<string, string>;
+  ids: string[];
+}
+
+export interface StatusFlipEvent {
+  connection: string;
+  changed_at: string;
+  transition: "on" | "off";
 }
 
 export interface SystemMetrics {
-  filesProcessedLastHour: number;
-  filesProcessedTotal: number;
   connectionsHealthy: number;
   connectionsTotal: number;
   newPapersSeen: number;
+  newPapersLastHour: number;
+  lastNewPaperAt?: string;
+  secondsSinceLastNewPaper?: number;
+  statusFlipCounts: Record<string, number>;
+  statusFlipSeries: StatusFlipEvent[];
   alertsFiredLastHour: number;
   corpusIndexDocs: number;
   streamQueueLength: number;
@@ -29,12 +46,6 @@ export interface SystemMetrics {
   langCacheHitRate?: number;
   lastProcessedAt?: string;
   consumerLastHeartbeat?: string;
-  // Pipeline-specific metrics
-  pipelineSourceCounts?: Record<string, number>;
-  pipelineDedupeRatio?: number;   // 0-1: (pre-dedupe - post-dedupe) / pre-dedupe
-  pipelineLastQuery?: string;
-  pipelineLastResultCount?: number;
-  pipelineSourceErrors?: Record<string, string>;
 }
 
 export interface SystemStatus {
@@ -43,13 +54,11 @@ export interface SystemStatus {
   metrics: SystemMetrics;
   redisSources: string[];
   fetchedAt: string;
-  source: "live";
+  source: "live" | "offline";
 }
 
-export type PipelineSource = "pubmed" | "arxiv" | "biorxiv";
-
 export interface Paper {
-  source: PipelineSource;
+  source: string;
   source_id: string;
   title: string;
   abstract: string;
@@ -59,19 +68,6 @@ export interface Paper {
   journal: string | null;
   published: string; // YYYY-MM-DD
   categories: string[];
-}
-
-export interface PipelineSearchRequest {
-  query: string;
-  days?: number;
-  sources?: PipelineSource[];
-  max_results?: number;
-}
-
-export interface PipelineSearchResult {
-  papers: Paper[];
-  errors: Record<string, string>;
-  counts: Record<string, number>;
 }
 
 // --- SPEC §5 data models (mirroring models.py) --------------------------------
@@ -109,23 +105,6 @@ export interface Classification {
   confidence: number;
 }
 
-export interface SearchHit {
-  paper: Paper;
-  classification: Classification;
-}
-
-export interface DigestEntry {
-  date: string;
-  paper: Paper;
-  classification: Classification;
-}
-
-export interface DigestSummary {
-  date: string;
-  count: number;
-  top_label: Label;
-}
-
 // --- StatusResponse (existing, unchanged below) --------------------------------
 
 export interface StatusResponse {
@@ -135,9 +114,12 @@ export interface StatusResponse {
     { ok: boolean; latency_ms?: number; detail?: string; status?: string }
   >;
   metrics: {
-    papers_processed_last_hour?: number;
-    papers_processed_total?: number;
     new_papers_seen?: number;
+    new_papers_last_hour?: number;
+    last_new_paper_at?: string | null;
+    seconds_since_last_new_paper?: number | null;
+    status_flip_counts?: Record<string, number>;
+    status_flip_series?: StatusFlipEvent[];
     alerts_fired_last_hour?: number;
     corpus_index_docs?: number;
     stream_length?: number;
@@ -146,12 +128,6 @@ export interface StatusResponse {
     langcache_hit_rate?: number;
     last_processed_at?: string;
     consumer_last_heartbeat?: string;
-    // Pipeline-specific metrics surfaced by the backend
-    pipeline_source_counts?: Record<string, number>;
-    pipeline_dedupe_ratio?: number;
-    pipeline_last_query?: string;
-    pipeline_last_result_count?: number;
-    pipeline_source_errors?: Record<string, string>;
   };
   redis_sources?: string[];
 }

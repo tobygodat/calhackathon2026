@@ -1,46 +1,29 @@
 import { useCallback, useEffect, useState } from "react";
-import { fetchStatus } from "./api";
-import { ActiveSearchPanel } from "./components/ActiveSearchPanel";
+import { fetchStatus, offlineStatus } from "./api";
 import { AlertFeedPanel } from "./components/AlertFeedPanel";
 import { CapabilityPanel } from "./components/CapabilityPanel";
 import { ConnectionsPanel } from "./components/ConnectionsPanel";
-import { DigestHistoryPanel } from "./components/DigestHistoryPanel";
+import { IntakeTestPanel } from "./components/IntakeTestPanel";
 import { LabProfilePanel } from "./components/LabProfilePanel";
+import { LedgerPanel } from "./components/LedgerPanel";
 import { MetricCards } from "./components/MetricCards";
-import { PipelineMetricsPanel } from "./components/PipelineMetricsPanel";
-import { PipelinePanel } from "./components/PipelinePanel";
 import { RedisSourcesPanel } from "./components/RedisSourcesPanel";
+import { ServiceFlipGraph } from "./components/ServiceFlipGraph";
 import { StatusDot } from "./components/StatusBadge";
-import type { PipelineSearchResult, SystemStatus } from "./types";
+import type { SystemStatus } from "./types";
 
 const POLL_MS = 10_000;
-
-function EmptyState() {
-  return (
-    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-700 py-20 text-center">
-      <div className="mb-3 h-3 w-3 rounded-full bg-slate-600" />
-      <p className="text-sm font-medium text-slate-400">Awaiting backend</p>
-      <p className="mt-1 max-w-xs text-xs text-slate-600">
-        No data yet. Start the FastAPI service and ensure{" "}
-        <code className="text-slate-500">GET /status</code> is reachable via{" "}
-        <code className="text-slate-500">/api/status</code>.
-      </p>
-    </div>
-  );
-}
 
 export default function App() {
   const [status, setStatus] = useState<SystemStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [lastAttempt, setLastAttempt] = useState<Date | null>(null);
-  const [lastPipelineResult, setLastPipelineResult] =
-    useState<PipelineSearchResult | null>(null);
-  const [lastPipelineQuery, setLastPipelineQuery] = useState("");
+  const [ledgerRefreshKey, setLedgerRefreshKey] = useState(0);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     const live = await fetchStatus();
-    if (live) setStatus(live);
+    setStatus(live);
     setLastAttempt(new Date());
     setLoading(false);
   }, []);
@@ -51,7 +34,8 @@ export default function App() {
     return () => clearInterval(id);
   }, [refresh]);
 
-  const isLive = status?.source === "live";
+  const offline = status === null;
+  const view = status ?? offlineStatus();
 
   return (
     <div className="mx-auto min-h-screen max-w-6xl px-4 py-8">
@@ -61,7 +45,7 @@ export default function App() {
             Baskr · Dev Monitor
           </p>
           <h1 className="mt-1 text-xl font-semibold text-slate-100">
-            Pipeline & integration status
+            Intake & integration status
           </h1>
           <p className="mt-1 text-sm text-slate-500">
             Sources · Redis · APIs · agent consumer
@@ -70,20 +54,20 @@ export default function App() {
 
         <div className="flex flex-col items-end gap-2">
           <div className="flex items-center gap-2">
-            <StatusDot status={status ? (status.healthy ? "healthy" : "down") : "unknown"} />
+            <StatusDot status={offline ? "down" : view.healthy ? "healthy" : "down"} />
             <span className="text-sm text-slate-300">
-              {status ? (status.healthy ? "System healthy" : "System degraded") : "No connection"}
+              {offline ? "Backend offline" : view.healthy ? "System healthy" : "System degraded"}
             </span>
           </div>
           <div className="flex items-center gap-3 text-xs text-slate-500">
             <span
               className={
-                isLive
+                !offline
                   ? "rounded bg-emerald-500/15 px-2 py-0.5 text-emerald-400"
                   : "rounded bg-slate-500/15 px-2 py-0.5 text-slate-500"
               }
             >
-              {isLive ? "Live API" : "No data"}
+              {!offline ? "Live API" : "Offline"}
             </span>
             {lastAttempt && (
               <span>Last attempt {lastAttempt.toLocaleTimeString()}</span>
@@ -101,38 +85,22 @@ export default function App() {
       </header>
 
       <main className="space-y-8">
-        {status ? (
-          <>
-            {/* System overview */}
-            <MetricCards metrics={status.metrics} />
-            <CapabilityPanel status={status} />
-            <ConnectionsPanel connections={status.connections} />
+        {/* System overview */}
+        <MetricCards metrics={offline ? null : view.metrics} />
+        <ServiceFlipGraph metrics={offline ? null : view.metrics} />
+        <CapabilityPanel status={offline ? null : view} />
+        <ConnectionsPanel connections={view.connections} />
 
-            {/* Lab data panels */}
-            <LabProfilePanel />
-            <ActiveSearchPanel />
-            <DigestHistoryPanel />
+        {/* Lab data panel */}
+        <LabProfilePanel />
 
-            {/* Agent loop alert feed */}
-            <AlertFeedPanel />
+        {/* Agent loop alert feed */}
+        <AlertFeedPanel />
 
-            {/* Infrastructure / pipeline panels */}
-            <RedisSourcesPanel sources={status.redisSources} />
-            <PipelineMetricsPanel
-              metrics={status.metrics}
-              lastResult={lastPipelineResult}
-              lastQuery={lastPipelineQuery}
-            />
-            <PipelinePanel
-              onResult={(query, result) => {
-                setLastPipelineQuery(query);
-                setLastPipelineResult(result);
-              }}
-            />
-          </>
-        ) : (
-          <EmptyState />
-        )}
+        {/* Infrastructure + intake + ledger */}
+        <RedisSourcesPanel sources={view.redisSources} />
+        <IntakeTestPanel onIngested={() => setLedgerRefreshKey((k) => k + 1)} />
+        <LedgerPanel refreshKey={ledgerRefreshKey} />
       </main>
 
       <footer className="mt-10 border-t border-slate-800 pt-4 text-xs text-slate-600">

@@ -56,9 +56,10 @@ class Settings:
     # --- models ---
     # Local, keyless embeddings (see app/embeddings.py) — no provider/model id.
     embed_dim: int = 1536
-    # TODO(build-time): confirm current recommended claude-* model (SPEC §4) before
-    # hardcoding a default here.
-    reason_model: str | None = os.environ.get("REASON_MODEL")
+    # Reasoning model for the real Anthropic path (app/llm.py). Defaults to the
+    # value documented in .env.example so classification works out of the box when
+    # an API key is present but REASON_MODEL is unset.
+    reason_model: str | None = os.environ.get("REASON_MODEL", "claude-sonnet-4-6")
 
     # --- retrieval / engine knobs ---
     memory_top_k: int = 8          # profile items pulled per classification (SPEC §6)

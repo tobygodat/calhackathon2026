@@ -152,6 +152,69 @@ def test_alerts_stream_wires_consumer_module():
 # Integration: push to stream, consumer classifies, alert fires
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Redis-backed alert stream (durable + cross-instance)
+# ---------------------------------------------------------------------------
+
+def _fake_redis():
+    """A decode_responses fakeredis client matching the production client."""
+    return fakeredis.FakeRedis(decode_responses=True)
+
+
+def test_alert_written_and_read_back_from_stream():
+    """An alert XADD-ed to baskr:alerts round-trips through read_alerts_stream."""
+    client = _fake_redis()
+    alert = {"paper_title": "Fiber and the gut", "label": "ANSWERS", "confidence": 0.9}
+
+    msg_id = consumer.write_alert_to_stream(alert, client=client)
+    assert msg_id is not None
+    assert client.xlen(consumer.ALERTS_STREAM) == 1
+
+    last_id, alerts = consumer.read_alerts_stream("0", block_ms=0, client=client)
+    assert alerts == [alert]
+    assert last_id == msg_id
+
+
+def test_replay_from_start_on_fresh_reader():
+    """A reader starting at id '0' replays every existing alert; a follow-up read
+    from the new last-id returns only newer entries."""
+    client = _fake_redis()
+    a1 = {"paper_title": "first", "label": "ANSWERS"}
+    a2 = {"paper_title": "second", "label": "CHALLENGES"}
+    consumer.write_alert_to_stream(a1, client=client)
+    consumer.write_alert_to_stream(a2, client=client)
+
+    # Fresh reader sees the whole backlog (demo: existing alerts appear at once).
+    last_id, alerts = consumer.read_alerts_stream("0", block_ms=0, client=client)
+    assert alerts == [a1, a2]
+
+    # Reading again from the advanced cursor yields nothing new yet...
+    _, more = consumer.read_alerts_stream(last_id, block_ms=0, client=client)
+    assert more == []
+
+    # ...until another alert lands, which the same cursor then picks up.
+    a3 = {"paper_title": "third", "label": "ANSWERS"}
+    consumer.write_alert_to_stream(a3, client=client)
+    _, newest = consumer.read_alerts_stream(last_id, block_ms=0, client=client)
+    assert newest == [a3]
+
+
+def test_redis_down_falls_back_to_deque(monkeypatch):
+    """When Redis is unreachable, write_alert_to_stream returns None but _push_alert
+    still records the alert in the in-process deque so degraded mode surfaces it."""
+    # Force the alert-stream client to look unreachable.
+    monkeypatch.setattr(consumer, "_alert_client", lambda settings=None: None)
+
+    assert consumer.write_alert_to_stream({"x": 1}) is None
+    # read also degrades gracefully without a client.
+    last_id, alerts = consumer.read_alerts_stream("0", block_ms=0)
+    assert (last_id, alerts) == ("0", [])
+
+    alert = {"paper_title": "deque-only", "label": "ANSWERS"}
+    consumer._push_alert(alert)  # type: ignore[attr-defined]
+    assert alert in consumer.get_recent_alerts(n=100)
+
+
 @pytest.mark.skipif(
     True,  # Run manually: requires live Redis + seeded profile
     reason="Live-Redis integration test — run manually with redis-server + seeded profile",

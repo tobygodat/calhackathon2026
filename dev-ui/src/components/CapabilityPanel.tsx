@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchDigestHistory, fetchPipeline, fetchProfile, fetchSearch } from "../api";
+import { fetchProfile } from "../api";
 import type { SystemStatus } from "../types";
 
 type CapStatus = "done" | "working" | "not" | "probing";
@@ -51,20 +51,12 @@ interface CapabilityPanelProps {
 export function CapabilityPanel({ status }: CapabilityPanelProps) {
   const [caps, setCaps] = useState<Capability[]>([
     { name: "Lab Profile", description: "GET /api/profile", status: "probing" },
-    { name: "Active Search", description: "POST /api/search", status: "probing" },
-    { name: "Digest History", description: "GET /api/digest/history", status: "probing" },
-    { name: "Ingest / Pipeline", description: "POST /api/pipeline/search", status: "probing" },
     { name: "Agent Loop", description: "Redis Streams consumer", status: "probing" },
   ]);
 
   useEffect(() => {
     async function probe() {
-      const [profile, searchHits, digestHistory, pipelineResult] = await Promise.all([
-        fetchProfile(),
-        fetchSearch("gut microbiome fiber"),
-        fetchDigestHistory(),
-        fetchPipeline({ query: "gut microbiome", days: 7, max_results: 5 }),
-      ]);
+      const profile = await fetchProfile();
 
       setCaps((prev) => [
         {
@@ -76,31 +68,11 @@ export function CapabilityPanel({ status }: CapabilityPanelProps) {
         },
         {
           ...prev[1],
-          status: searchHits !== null ? "working" : "not",
-          detail: searchHits !== null
-            ? `${searchHits.length} relevant hits returned`
-            : "endpoint not reachable",
-        },
-        {
-          ...prev[2],
-          status: digestHistory && digestHistory.length > 0 ? "done" : digestHistory ? "working" : "not",
-          detail: digestHistory
-            ? `${digestHistory.length} frozen digest${digestHistory.length !== 1 ? "s" : ""}`
-            : "endpoint not reachable",
-        },
-        {
-          ...prev[3],
-          status: pipelineResult && pipelineResult.papers.length > 0 ? "working" : "not",
-          detail: pipelineResult
-            ? `${pipelineResult.papers.length} papers · ${Object.entries(pipelineResult.counts).map(([k, v]) => `${k}:${v}`).join(", ")}`
-            : "endpoint not reachable",
-        },
-        {
-          ...prev[4],
-          status: status?.connections.find((c) => c.id === "fastapi")?.status === "healthy"
-            ? "working"
-            : "not",
-          detail: "Phase 6 — not yet implemented",
+          status:
+            status?.connections.find((c) => c.id === "fastapi")?.status === "healthy"
+              ? "working"
+              : "not",
+          detail: "Redis Streams consumer",
         },
       ]);
     }

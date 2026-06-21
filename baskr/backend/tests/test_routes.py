@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import io
 import json
+import time
 from unittest.mock import patch
 
 import pytest
@@ -387,3 +388,97 @@ class TestStatusRoute:
             with patch("app.memory.load_profile", return_value=_make_profile()):
                 data = client.get("/status").json()
         assert data["metrics"]["memory_records"] == 1  # _make_profile has 1 item
+
+
+# ---------------------------------------------------------------------------
+# _pubmed_probe / cache behaviour
+# ---------------------------------------------------------------------------
+
+class TestPubmedProbeCache:
+    """Unit tests for the module-level PubMed probe cache in app/main.py.
+
+    These bypass _probe() and call _pubmed_probe() directly so we can assert
+    on cache state and request counts without starting the full /status route.
+    """
+
+    @pytest.fixture(autouse=True)
+    def reset_cache(self):
+        import app.main as main
+        main._reset_pubmed_cache()
+        yield
+        main._reset_pubmed_cache()
+
+    def test_reset_clears_result_and_expiry(self):
+        import app.main as main
+        main._pubmed_cache_result = {}
+        main._pubmed_cache_expires = float("inf")
+        main._reset_pubmed_cache()
+        assert main._pubmed_cache_result is None
+        assert main._pubmed_cache_expires == 0.0
+
+    def test_successful_probe_populates_cache(self):
+        import app.main as main
+        from unittest.mock import MagicMock
+        fake = MagicMock()
+        fake.raise_for_status = lambda: None
+        with patch("requests.get", return_value=fake):
+            main._pubmed_probe()
+        assert main._pubmed_cache_result is not None
+        assert main._pubmed_cache_expires > time.monotonic()
+
+    def test_cache_hit_skips_network_call(self):
+        import app.main as main
+        from unittest.mock import MagicMock
+        fake = MagicMock()
+        fake.raise_for_status = lambda: None
+        with patch("requests.get", return_value=fake) as mock_get:
+            main._pubmed_probe()  # cold — hits network
+            main._pubmed_probe()  # warm — should use cache
+        assert mock_get.call_count == 1
+
+    def test_expired_cache_triggers_new_network_call(self):
+        import app.main as main
+        from unittest.mock import MagicMock
+        # Seed an expired cache entry.
+        main._pubmed_cache_result = {}
+        main._pubmed_cache_expires = time.monotonic() - 1.0
+        fake = MagicMock()
+        fake.raise_for_status = lambda: None
+        with patch("requests.get", return_value=fake) as mock_get:
+            main._pubmed_probe()
+        assert mock_get.call_count == 1
+
+    def test_failed_probe_does_not_update_cache(self):
+        import app.main as main
+        with patch("requests.get", side_effect=ConnectionError("ncbi down")):
+            with pytest.raises(ConnectionError):
+                main._pubmed_probe()
+        assert main._pubmed_cache_result is None
+
+    def test_failed_probe_does_not_evict_valid_cache(self):
+        import app.main as main
+        from unittest.mock import MagicMock
+        # Warm the cache first.
+        fake = MagicMock()
+        fake.raise_for_status = lambda: None
+        with patch("requests.get", return_value=fake):
+            main._pubmed_probe()
+        cached_expiry = main._pubmed_cache_expires
+        # Now expire the cache and make the next call fail.
+        main._pubmed_cache_expires = time.monotonic() - 1.0
+        with patch("requests.get", side_effect=ConnectionError("timeout")):
+            with pytest.raises(ConnectionError):
+                main._pubmed_probe()
+        # Cache was NOT overwritten with None after a failed refresh.
+        assert main._pubmed_cache_result is not None
+
+    def test_probe_timeout_is_8_seconds(self):
+        """_pubmed_probe must use timeout=8, not the old timeout=5."""
+        import app.main as main
+        from unittest.mock import MagicMock, call
+        fake = MagicMock()
+        fake.raise_for_status = lambda: None
+        with patch("requests.get", return_value=fake) as mock_get:
+            main._pubmed_probe()
+        _, kwargs = mock_get.call_args
+        assert kwargs.get("timeout") == 8
