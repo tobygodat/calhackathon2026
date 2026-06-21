@@ -19,7 +19,7 @@ class Paper:
     """A single research paper, normalized across all sources."""
 
     # --- identity ---
-    source: str                 # "pubmed" | "arxiv" | "biorxiv" | "nature"
+    source: str                 # "pubmed" | "arxiv" | "biorxiv"  (| "nature" DISABLED)
     source_id: str              # PMID, arXiv id, DOI, etc. (unique within source)
     title: str
 
