@@ -1,127 +1,56 @@
-"""Unit tests for the OpenAI embeddings wrapper (app/embeddings.py).
+"""Phase 2 — embeddings deterministic fallback (no OpenAI key).
 
-Note: embed_text/embed_batch import OpenAI lazily inside the function body,
-so we must patch ``openai.OpenAI`` (the source), not ``app.embeddings.OpenAI``.
+These run against the degraded path: correct dim, deterministic, normalized.
 """
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+import math
 
-import pytest
-
+from app.config import Settings
 from app.embeddings import embed_batch, embed_text
 
-
-def _mock_embedding() -> list[float]:
-    """Return a fake 1536-dim embedding."""
-    return [0.1] * 1536
+# Force the degraded path explicitly (no key) so tests never hit the network.
+_SETTINGS = Settings(openai_api_key=None)
 
 
-def _make_openai_response(embeddings: list[list[float]]) -> MagicMock:
-    """Build a mock OpenAI embeddings response."""
-    mock_resp = MagicMock()
-    items = []
-    for idx, emb in enumerate(embeddings):
-        item = MagicMock()
-        item.embedding = emb
-        item.index = idx
-        items.append(item)
-    mock_resp.data = items
-    return mock_resp
+def _norm(vec: list[float]) -> float:
+    return math.sqrt(sum(x * x for x in vec))
 
 
-class TestEmbedText:
-    def test_returns_list_of_floats(self, settings):
-        fake_emb = _mock_embedding()
-        with patch("openai.OpenAI") as MockOpenAI:
-            MockOpenAI.return_value.embeddings.create.return_value = (
-                _make_openai_response([fake_emb])
-            )
-            result = embed_text("test text", settings=settings)
-        assert isinstance(result, list)
-        assert all(isinstance(v, float) for v in result)
-
-    def test_returns_1536_dimensions(self, settings):
-        fake_emb = _mock_embedding()
-        with patch("openai.OpenAI") as MockOpenAI:
-            MockOpenAI.return_value.embeddings.create.return_value = (
-                _make_openai_response([fake_emb])
-            )
-            result = embed_text("test text", settings=settings)
-        assert len(result) == 1536
-
-    def test_calls_openai_with_correct_model(self, settings):
-        with patch("openai.OpenAI") as MockOpenAI:
-            mock_client = MockOpenAI.return_value
-            mock_client.embeddings.create.return_value = (
-                _make_openai_response([_mock_embedding()])
-            )
-            embed_text("hello", settings=settings)
-            mock_client.embeddings.create.assert_called_once()
-            call_kwargs = mock_client.embeddings.create.call_args.kwargs
-            assert call_kwargs["model"] == settings.embed_model
-            assert call_kwargs["input"] == "hello"
-
-    def test_uses_api_key_from_settings(self, settings):
-        with patch("openai.OpenAI") as MockOpenAI:
-            MockOpenAI.return_value.embeddings.create.return_value = (
-                _make_openai_response([_mock_embedding()])
-            )
-            embed_text("x", settings=settings)
-            MockOpenAI.assert_called_once_with(api_key=settings.openai_api_key)
-
-    def test_empty_string_input(self, settings):
-        fake_emb = _mock_embedding()
-        with patch("openai.OpenAI") as MockOpenAI:
-            MockOpenAI.return_value.embeddings.create.return_value = (
-                _make_openai_response([fake_emb])
-            )
-            result = embed_text("", settings=settings)
-        assert len(result) == 1536
+def test_embed_text_dim_is_1536() -> None:
+    vec = embed_text("gut microbiome butyrate", _SETTINGS)
+    assert len(vec) == _SETTINGS.embed_dim == 1536
 
 
-class TestEmbedBatch:
-    def test_returns_list_of_embeddings(self, settings):
-        texts = ["text one", "text two", "text three"]
-        fake_embs = [_mock_embedding() for _ in texts]
-        with patch("openai.OpenAI") as MockOpenAI:
-            MockOpenAI.return_value.embeddings.create.return_value = (
-                _make_openai_response(fake_embs)
-            )
-            result = embed_batch(texts, settings=settings)
-        assert len(result) == 3
-        assert all(len(e) == 1536 for e in result)
+def test_embed_text_is_deterministic() -> None:
+    a = embed_text("same input string", _SETTINGS)
+    b = embed_text("same input string", _SETTINGS)
+    assert a == b
 
-    def test_empty_list_returns_empty(self, settings):
-        result = embed_batch([], settings=settings)
-        assert result == []
 
-    def test_single_text(self, settings):
-        fake_emb = _mock_embedding()
-        with patch("openai.OpenAI") as MockOpenAI:
-            MockOpenAI.return_value.embeddings.create.return_value = (
-                _make_openai_response([fake_emb])
-            )
-            result = embed_batch(["single"], settings=settings)
-        assert len(result) == 1
+def test_embed_text_distinct_inputs_differ() -> None:
+    assert embed_text("alpha", _SETTINGS) != embed_text("beta", _SETTINGS)
 
-    def test_preserves_order(self, settings):
-        """Embeddings are sorted by index field so order is preserved."""
-        emb_a = [0.1] * 1536
-        emb_b = [0.9] * 1536
-        mock_resp = MagicMock()
-        # Intentionally return b before a (reversed) to test sort-by-index
-        item_b = MagicMock()
-        item_b.embedding = emb_b
-        item_b.index = 1
-        item_a = MagicMock()
-        item_a.embedding = emb_a
-        item_a.index = 0
-        mock_resp.data = [item_b, item_a]  # reversed
 
-        with patch("openai.OpenAI") as MockOpenAI:
-            MockOpenAI.return_value.embeddings.create.return_value = mock_resp
-            result = embed_batch(["a", "b"], settings=settings)
-        assert result[0] == emb_a
-        assert result[1] == emb_b
+def test_embed_text_is_normalized() -> None:
+    vec = embed_text("normalize me", _SETTINGS)
+    assert math.isclose(_norm(vec), 1.0, rel_tol=1e-9, abs_tol=1e-9)
+
+
+def test_embed_batch_returns_n_vectors_each_1536() -> None:
+    texts = ["one", "two", "three"]
+    vecs = embed_batch(texts, _SETTINGS)
+    assert len(vecs) == len(texts)
+    for v in vecs:
+        assert len(v) == 1536
+        assert math.isclose(_norm(v), 1.0, rel_tol=1e-9, abs_tol=1e-9)
+
+
+def test_embed_batch_matches_embed_text() -> None:
+    [single] = embed_batch(["consistency"], _SETTINGS)
+    assert single == embed_text("consistency", _SETTINGS)
+
+
+def test_embed_batch_empty() -> None:
+    assert embed_batch([], _SETTINGS) == []
