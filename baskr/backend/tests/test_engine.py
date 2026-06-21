@@ -1,3 +1,4 @@
+# do not include in test1
 """Unit tests for the classification engine (app/engine.py).
 
 engine.py uses lazy imports from sibling modules, so we patch at the SOURCE:
@@ -99,7 +100,7 @@ class TestClassifyPaper:
         (the engine does not silently substitute all profile items)."""
         captured_items = []
 
-        def capture(items, paper):
+        def capture(items, paper, prior_work=None):
             captured_items.append(list(items))
             return "s", "u"
 
@@ -123,6 +124,82 @@ class TestClassifyPaper:
                         with pytest.raises(ValueError):
                             classify_paper(sample_paper, sample_profile,
                                            settings=settings)
+
+    def test_default_off_skips_prior_work(self, sample_paper, sample_profile):
+        """With the flag at its default (off), no prior_work reaches build_prompt
+        and query_similar is never touched (default path unchanged)."""
+        settings = Settings(anthropic_api_key=None)
+        captured = {}
+
+        def cap_build(items, paper, prior_work=None):
+            captured["prior_work"] = prior_work
+            return "s", "u"
+
+        with patch("app.redis_client.query_similar") as mock_query:
+            with patch("app.memory.retrieve_relevant",
+                       return_value=sample_profile.items):
+                with patch("app.prompts.build_prompt", side_effect=cap_build):
+                    with patch("app.llm.classify", return_value=_mock_cl()):
+                        classify_paper(sample_paper, sample_profile,
+                                       settings=settings)
+        assert captured["prior_work"] is None
+        mock_query.assert_not_called()
+
+    def test_vector_priorwork_flag_passes_prior_work_to_build_prompt(
+        self, sample_paper, sample_profile
+    ):
+        """With the flag on and query_similar mocked, the prior-work list reaches
+        build_prompt and classify still returns a valid Classification."""
+        settings = Settings(anthropic_api_key=None, use_vector_priorwork=True)
+        fake_prior = [
+            {"title": "Prior paper one", "abstract": "earlier fiber findings",
+             "uid": "p1"},
+            {"title": "Prior paper two", "abstract": "Akkermansia and immunity",
+             "uid": "p2"},
+        ]
+        captured = {}
+
+        def cap_build(items, paper, prior_work=None):
+            captured["prior_work"] = prior_work
+            return "s", "u"
+
+        with patch("app.embeddings.embed_text", return_value=[0.1] * 1536):
+            with patch("app.redis_client.query_similar",
+                       return_value=fake_prior) as mock_query:
+                with patch("app.memory.retrieve_relevant",
+                           return_value=sample_profile.items):
+                    with patch("app.prompts.build_prompt", side_effect=cap_build):
+                        with patch("app.llm.classify", return_value=_mock_cl()):
+                            result = classify_paper(sample_paper, sample_profile,
+                                                    settings=settings)
+        mock_query.assert_called_once()
+        assert captured["prior_work"] == fake_prior
+        assert isinstance(result, Classification)
+        assert result.label == Label.ANSWERS
+
+    def test_vector_priorwork_query_failure_falls_back(
+        self, sample_paper, sample_profile
+    ):
+        """If embedding/query_similar raises, classify_paper falls back to the
+        no-prior-work prompt (prior_work is None) and still classifies."""
+        settings = Settings(anthropic_api_key=None, use_vector_priorwork=True)
+        captured = {}
+
+        def cap_build(items, paper, prior_work=None):
+            captured["prior_work"] = prior_work
+            return "s", "u"
+
+        with patch("app.embeddings.embed_text", return_value=[0.1] * 1536):
+            with patch("app.redis_client.query_similar",
+                       side_effect=RuntimeError("redis down")):
+                with patch("app.memory.retrieve_relevant",
+                           return_value=sample_profile.items):
+                    with patch("app.prompts.build_prompt", side_effect=cap_build):
+                        with patch("app.llm.classify", return_value=_mock_cl()):
+                            result = classify_paper(sample_paper, sample_profile,
+                                                    settings=settings)
+        assert captured["prior_work"] is None
+        assert isinstance(result, Classification)
 
 
 class TestActiveSearch:

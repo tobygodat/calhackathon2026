@@ -160,13 +160,13 @@ class TestAddMemoryRoute:
 class TestLedgerRoute:
     def test_empty_when_no_papers(self, client):
         # Autouse conftest fixture repoints the CSV at an empty tmp dir.
-        assert client.get("/ledger").json() == []
+        assert client.get("/api/ledger").json() == []
 
     def test_returns_recorded_papers_newest_first(self, client):
         import app.monitoring as mon
         mon.record_papers([{"source": "pubmed", "source_id": "1", "title": "Older"}])
         mon.record_papers([{"source": "arxiv", "source_id": "2", "title": "Newer"}])
-        data = client.get("/ledger").json()
+        data = client.get("/api/ledger").json()
         assert [r["title"] for r in data] == ["Newer", "Older"]
         for r in data:
             assert set(r) == {"title", "first_seen_at", "source"}
@@ -185,7 +185,7 @@ def _upload(name: str, payload) -> tuple[str, tuple]:
 class TestIntakeRoute:
     def test_single_paper_object(self, client):
         paper = {"source": "pubmed", "source_id": "1", "title": "A paper"}
-        resp = client.post("/intake", files=[_upload("p.json", paper)])
+        resp = client.post("/api/intake", files=[_upload("p.json", paper)])
         assert resp.status_code == 200
         body = resp.json()
         # Redis is unavailable in the sandbox, so streamed may be 0 — but the
@@ -194,14 +194,14 @@ class TestIntakeRoute:
         assert body["skipped"] == 0
         assert set(body) == {"streamed", "recorded", "skipped", "errors", "ids"}
         # Ledger reflects the recorded paper.
-        assert client.get("/ledger").json()[0]["title"] == "A paper"
+        assert client.get("/api/ledger").json()[0]["title"] == "A paper"
 
     def test_array_of_papers(self, client):
         papers = [
             {"source": "pubmed", "source_id": "1", "title": "One"},
             {"source": "arxiv", "source_id": "2", "title": "Two"},
         ]
-        resp = client.post("/intake", files=[_upload("batch.json", papers)])
+        resp = client.post("/api/intake", files=[_upload("batch.json", papers)])
         body = resp.json()
         assert body["recorded"] == 2
 
@@ -210,7 +210,7 @@ class TestIntakeRoute:
             {"source": "pubmed", "source_id": "1", "title": "Has title"},
             {"source": "pubmed", "source_id": "2"},  # no title
         ]
-        resp = client.post("/intake", files=[_upload("mix.json", papers)])
+        resp = client.post("/api/intake", files=[_upload("mix.json", papers)])
         body = resp.json()
         assert body["recorded"] == 1
         assert body["skipped"] == 1
@@ -218,7 +218,7 @@ class TestIntakeRoute:
     def test_bad_json_file_records_error(self, client):
         bad = ("files", ("broken.json", io.BytesIO(b"{not json"),
                           "application/json"))
-        resp = client.post("/intake", files=[bad])
+        resp = client.post("/api/intake", files=[bad])
         assert resp.status_code == 200
         body = resp.json()
         assert "broken.json" in body["errors"]
@@ -228,7 +228,7 @@ class TestIntakeRoute:
         # Force the stream XADD to succeed regardless of a live Redis.
         with patch("app.streams.add_new_paper", return_value="1-0"):
             resp = client.post(
-                "/intake",
+                "/api/intake",
                 files=[_upload("p.json",
                                {"source": "pubmed", "source_id": "9", "title": "Streamed"})],
             )
@@ -239,7 +239,7 @@ class TestIntakeRoute:
     def test_redis_outage_does_not_500(self, client):
         with patch("app.streams.add_new_paper", side_effect=RuntimeError("redis down")):
             resp = client.post(
-                "/intake",
+                "/api/intake",
                 files=[_upload("p.json",
                                {"source": "pubmed", "source_id": "5", "title": "T"})],
             )
@@ -252,7 +252,7 @@ class TestIntakeRoute:
     def test_multiple_files(self, client):
         f1 = _upload("a.json", {"source": "pubmed", "source_id": "1", "title": "A"})
         f2 = _upload("b.json", [{"source": "arxiv", "source_id": "2", "title": "B"}])
-        resp = client.post("/intake", files=[f1, f2])
+        resp = client.post("/api/intake", files=[f1, f2])
         body = resp.json()
         assert body["recorded"] == 2
 
@@ -265,7 +265,7 @@ class TestIntakeRoute:
 
         with patch("app.streams.add_new_paper", side_effect=capture):
             client.post(
-                "/intake",
+                "/api/intake",
                 files=[_upload("p.json", {
                     "source": "pubmed", "source_id": "1", "title": "T",
                     "authors": ["X", "Y"], "abstract": "abs",
@@ -300,7 +300,7 @@ class TestStatusRoute:
 
     def test_returns_expected_shape(self, client):
         with self._patch_probes({}):
-            data = client.get("/status").json()
+            data = client.get("/api/status").json()
         assert {"healthy", "connections", "metrics", "redis_sources"}.issubset(data)
         # The restored dashboard contract probes the data sources plus the
         # feature-level Redis surfaces and external APIs (see test_smoke.py).
@@ -315,7 +315,7 @@ class TestStatusRoute:
         # the dev-UI can surface them. Offline these probes may report ok=False;
         # we assert presence and shape, not that they are up.
         with self._patch_probes({}):
-            connections = client.get("/status").json()["connections"]
+            connections = client.get("/api/status").json()["connections"]
         for key in ("openalex", "chemrxiv", "medrxiv"):
             assert key in connections, f"missing data source: {key}"
             assert isinstance(connections[key], dict)
@@ -323,13 +323,13 @@ class TestStatusRoute:
 
     def test_metrics_include_new_papers_seen(self, client):
         with self._patch_probes({}):
-            data = client.get("/status").json()
+            data = client.get("/api/status").json()
         assert "new_papers_seen" in data["metrics"]
         assert isinstance(data["metrics"]["new_papers_seen"], int)
 
     def test_metrics_time_based_keys_present(self, client):
         with self._patch_probes({}):
-            metrics = client.get("/status").json()["metrics"]
+            metrics = client.get("/api/status").json()["metrics"]
         for key in (
             "last_new_paper_at", "seconds_since_last_new_paper",
             "new_papers_last_hour", "status_flip_counts", "status_flip_series",
@@ -341,7 +341,7 @@ class TestStatusRoute:
         # papers_processed_* are part of the restored dashboard contract
         # (test_smoke.py); only the per-request pipeline_* keys stay absent.
         with self._patch_probes({}):
-            metrics = client.get("/status").json()["metrics"]
+            metrics = client.get("/api/status").json()["metrics"]
         for key in ("pipeline_last_query", "pipeline_source_counts"):
             assert key not in metrics
 
@@ -349,7 +349,7 @@ class TestStatusRoute:
         import app.monitoring as mon
         mon.record_papers([{"source": "pubmed", "source_id": "1", "title": "T"}])
         with self._patch_probes({}):
-            metrics = client.get("/status").json()["metrics"]
+            metrics = client.get("/api/status").json()["metrics"]
         assert metrics["last_new_paper_at"] is not None
         assert isinstance(metrics["seconds_since_last_new_paper"], int)
         assert metrics["last_processed_at"] == metrics["last_new_paper_at"]
@@ -359,18 +359,18 @@ class TestStatusRoute:
         mon.record_status({"redis": {"ok": True}})   # baseline
         mon.record_status({"redis": {"ok": False}})  # flip off
         with self._patch_probes({"ping_redis": {"ok": False, "detail": "x"}}):
-            series = client.get("/status").json()["metrics"]["status_flip_series"]
+            series = client.get("/api/status").json()["metrics"]["status_flip_series"]
         assert isinstance(series, list)
         assert all(set(e) == {"connection", "changed_at", "transition"} for e in series)
 
     def test_healthy_true_when_all_ok(self, client):
         with self._patch_probes({}):
-            data = client.get("/status").json()
+            data = client.get("/api/status").json()
         assert data["healthy"] is True
 
     def test_healthy_false_when_one_down(self, client):
         with self._patch_probes({"ping_redis": {"ok": False, "detail": "timeout"}}):
-            data = client.get("/status").json()
+            data = client.get("/api/status").json()
         assert data["healthy"] is False
         assert data["connections"]["redis"]["ok"] is False
 
@@ -379,14 +379,14 @@ class TestStatusRoute:
             "ping_redis": {"ok": True, "latency_ms": 1.0},
             "probe_redisvl": {"ok": False, "detail": "no query engine"},
         }):
-            data = client.get("/status").json()
+            data = client.get("/api/status").json()
         # Redis up, RedisVL down -> only the digest store is a live surface.
         assert data["redis_sources"] == ["Digest store"]
 
     def test_metrics_memory_records_from_profile(self, client):
         with self._patch_probes({}):
             with patch("app.memory.load_profile", return_value=_make_profile()):
-                data = client.get("/status").json()
+                data = client.get("/api/status").json()
         assert data["metrics"]["memory_records"] == 1  # _make_profile has 1 item
 
 

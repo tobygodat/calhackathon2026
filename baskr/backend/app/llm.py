@@ -1,3 +1,4 @@
+# do not include in test1
 """Anthropic Claude client with JSON-enforced output (SPEC §7).
 
 Sends the system+user prompt from ``prompts.build_prompt`` and parses a strict
@@ -163,12 +164,22 @@ def _parse_user_prompt(user: str) -> tuple[list[tuple[str, str]], str]:
     items: list[tuple[str, str]] = []
     paper_parts: list[str] = []
     in_paper = False
+    in_prior = False
     for line in user.splitlines():
+        # The optional PRIOR WORK section (opt-in vector prior-work) sits between
+        # LAB PROFILE and NEW PAPER; skip it so it pollutes neither the recovered
+        # profile items nor the paper text.
+        if line.startswith("PRIOR WORK:"):
+            in_prior = True
+            continue
         if line.startswith("NEW PAPER:"):
             in_paper = True
+            in_prior = False
             continue
         if line.startswith("Return strict JSON only:"):
             break
+        if in_prior:
+            continue
         m = _ITEM_LINE_RE.match(line)
         if m and not in_paper:
             items.append((m.group("id"), m.group("text")))

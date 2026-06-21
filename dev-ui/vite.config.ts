@@ -13,7 +13,8 @@ export default defineConfig({
         // reaches the uvicorn started with --host 127.0.0.1 --port 8002.
         target: "http://127.0.0.1:8002",
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ""),
+        // No rewrite: every backend route lives under /api, so the prefix is
+        // forwarded verbatim (UI /api/profile -> backend /api/profile).
       },
     },
   },

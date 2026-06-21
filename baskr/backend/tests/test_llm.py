@@ -1,3 +1,4 @@
+# do not include in test1
 """Phase 2 — llm.classify: schema-valid Classification + threshold collapse.
 
 Default path is the deterministic fallback (no Anthropic key). The threshold rule

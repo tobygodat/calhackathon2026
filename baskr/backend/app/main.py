@@ -5,10 +5,10 @@ Route surface:
     GET  /api/profile           -> Profile
     POST /api/profile/memory    -> Profile           (stretch)
 
-Dev-UI routes (dev-ui vite proxy strips /api prefix):
-    GET  /status                -> system status for dev-ui
-    GET  /ledger                -> paper ledger (newest first)
-    POST /intake                -> drop file(s) of papers onto the intake stream
+Dev-UI routes (every route lives under /api; the vite proxy forwards as-is):
+    GET  /api/status            -> system status for dev-ui
+    GET  /api/ledger            -> paper ledger (newest first)
+    POST /api/intake            -> drop file(s) of papers onto the intake stream
 """
 
 from __future__ import annotations
@@ -357,7 +357,7 @@ def alerts_stream() -> StreamingResponse:
 # Paper ledger
 # ---------------------------------------------------------------------------
 
-@app.get("/ledger")
+@app.get("/api/ledger")
 def ledger() -> list[dict]:
     """Return the paper ledger newest-first.
 
@@ -395,7 +395,7 @@ def _paper_fields(paper: dict) -> dict[str, str]:
     }
 
 
-@app.post("/intake")
+@app.post("/api/intake")
 async def intake(files: list[UploadFile]) -> dict:
     """Accept one or more uploaded JSON files (single paper object or array of
     them) and push each paper onto the intake stream + paper ledger.
@@ -478,7 +478,7 @@ def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
-@app.get("/status")
+@app.get("/api/status")
 def system_status() -> dict:
     """Honest system status for the dev monitor.
 
@@ -614,7 +614,7 @@ def system_status() -> dict:
             raise RuntimeError("OPENAI_API_KEY not set")
         return {"detail": "configured"}
 
-    from concurrent.futures import ThreadPoolExecutor
+    from concurrent.futures import ThreadPoolExecutor, TimeoutError as _FutureTimeout
 
     _probe_fns = {
         "pubmed": ping_pubmed,
@@ -632,9 +632,26 @@ def system_status() -> dict:
         "anthropic": ping_anthropic,
         "consumer": ping_consumer,
     }
-    with ThreadPoolExecutor(max_workers=len(_probe_fns)) as _ex:
+    # Probes run concurrently, but a single slow upstream (e.g. OpenAlex can take
+    # ~13s) must not stall the whole response: the dev-ui aborts /status after 9s
+    # and then renders the backend as offline. Bound the sweep to a budget well
+    # under that; any probe still running at the deadline is reported down.
+    _PROBE_BUDGET_S = 7.0
+    _ex = ThreadPoolExecutor(max_workers=len(_probe_fns))
+    try:
         _futs = {name: _ex.submit(_probe, fn) for name, fn in _probe_fns.items()}
-        connections = {name: fut.result() for name, fut in _futs.items()}
+        _deadline = time.monotonic() + _PROBE_BUDGET_S
+        connections = {}
+        for name, fut in _futs.items():
+            try:
+                connections[name] = fut.result(timeout=max(0.0, _deadline - time.monotonic()))
+            except _FutureTimeout:
+                connections[name] = {
+                    "ok": False,
+                    "detail": f"probe exceeded {_PROBE_BUDGET_S:.0f}s budget",
+                }
+    finally:
+        _ex.shutdown(wait=False, cancel_futures=True)
 
     healthy = all(c["ok"] for c in connections.values())
 

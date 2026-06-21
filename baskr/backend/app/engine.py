@@ -1,14 +1,19 @@
+# do not include in test1
 """Classification engine — implemented once, shared by both surfaces (SPEC §6).
 
     classify_paper(paper, profile):
       1. retrieve top-k profile items from memory       # memory.py
-      2. build_prompt(profile_items, paper)             # prompts.py (§7)
-      3. Claude -> {label, reason, matched_item_id, confidence}   # llm.py
-      4. return classification
+      2. (opt-in) search prior work via Redis vector index   # redis_client.py
+      3. build_prompt(profile_items, paper, prior_work)  # prompts.py (§7)
+      4. Claude -> {label, reason, matched_item_id, confidence}   # llm.py
+      5. return classification
 
-Note: embedding step removed — classify_paper runs entirely through Anthropic.
-Local embeddings (app/embeddings.py) are only needed if/when Redis vector
-search is added.
+The prior-work step is gated on ``settings.use_vector_priorwork`` (env
+``BASKR_USE_VECTOR_PRIORWORK``, default OFF). When off, classify_paper runs
+entirely through Anthropic with no Redis vector round-trip and behaves exactly as
+before. When on, the paper abstract is embedded locally (app/embeddings.py) and
+``redis_client.query_similar`` supplies the top-N similar prior papers; any
+failure there falls back transparently to the no-prior-work prompt.
 
 Throughput (see ARCHITECTURE_DECISIONS.md #12): classification is the cost and
 latency bottleneck, so both surfaces fan ``classify_paper`` out with bounded
@@ -31,18 +36,45 @@ from .models import Classification, Label, PaperOut, Profile, SearchHit
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 
 
+def _search_prior_work(paper: PaperOut,
+                       settings: Settings) -> list[dict] | None:
+    """Opt-in agent-loop step: embed the paper and fetch similar prior papers.
+
+    Returns the top-N prior-work records from the Redis vector index, or None when
+    the feature is off, there is no text to embed, or anything fails — every
+    failure mode collapses to "no prior work" so classification never breaks on a
+    missing/unhealthy vector index.
+    """
+    if not settings.use_vector_priorwork:
+        return None
+    text = paper.abstract or paper.title
+    if not text:
+        return None
+    try:
+        from .embeddings import embed_text  # noqa: PLC0415
+        from .redis_client import query_similar  # noqa: PLC0415
+
+        embedding = embed_text(text, settings)
+        return query_similar(embedding, settings.vector_priorwork_k, settings=settings)
+    except Exception:  # noqa: BLE001 — any failure -> no-prior-work prompt
+        return None
+
+
 def classify_paper(paper: PaperOut, profile: Profile,
                    settings: Settings = SETTINGS) -> Classification:
-    """Run the 5-step engine for one paper against the lab profile (SPEC §6)."""
+    """Run the engine for one paper against the lab profile (SPEC §6)."""
     from .llm import classify
     from .memory import retrieve_relevant
     from .prompts import build_prompt
 
-    # Step 2: retrieve relevant profile items
+    # Step 1: retrieve relevant profile items
     items = retrieve_relevant(paper.abstract or paper.title, settings=settings)
 
+    # Step 2: search prior work (opt-in; None when disabled or on failure)
+    prior_work = _search_prior_work(paper, settings)
+
     # Step 3: build prompt
-    system, user = build_prompt(items, paper)
+    system, user = build_prompt(items, paper, prior_work=prior_work)
 
     # Step 4: call Claude
     classification = classify(system, user, settings=settings)

@@ -1,3 +1,4 @@
+# do not include in test1
 """Environment, model names, and thresholds for the Baskr backend (SPEC §11).
 
 This is the one place that reads ``os.environ``. Everything else takes a
@@ -44,6 +45,9 @@ _load_dotenv()
 class Settings:
     # --- secrets / connections ---
     anthropic_api_key: str | None = os.environ.get("ANTHROPIC_API_KEY")
+    # OpenAI key enables real text-embedding-3-small vectors for RedisVL search.
+    # When None, app/embeddings.py falls back to the local keyless hash embedder.
+    openai_api_key: str | None = os.environ.get("OPENAI_API_KEY")
     redis_url: str = os.environ.get("REDIS_URL", "redis://localhost:6379")
     # Surfaced for completeness (SPEC §11). Paper fetching is delegated to
     # implementations/data_pipeline, which reads NCBI_API_KEY from its own Config.
@@ -54,7 +58,10 @@ class Settings:
     relevance_threshold: float = float(os.environ.get("BASKR_RELEVANCE_THRESHOLD", "0.5"))
 
     # --- models ---
-    # Local, keyless embeddings (see app/embeddings.py) — no provider/model id.
+    # Embeddings: real OpenAI text-embedding-3-small when openai_api_key is set,
+    # else the local keyless hash embedder (app/embeddings.py). Both are 1536-dim,
+    # matching the RedisVL papers index, so the two are interchangeable at rest.
+    embed_model: str = os.environ.get("EMBED_MODEL", "text-embedding-3-small")
     embed_dim: int = 1536
     # Reasoning model for the real Anthropic path (app/llm.py). Defaults to the
     # value documented in .env.example so classification works out of the box when
@@ -65,6 +72,16 @@ class Settings:
     memory_top_k: int = 8          # profile items pulled per classification (SPEC §6)
     active_search_cap: int = 5     # max hits returned by /api/search (SPEC §6)
     active_search_days: int = 7    # PubMed lookback window for active search
+
+    # Opt-in agent-loop step 3 ("search prior work"): when true, classify_paper
+    # embeds the paper and queries the Redis vector index for the top-N similar
+    # prior papers, feeding them into the prompt. OFF by default so the default
+    # classification path is unchanged and needs no Redis vector round-trip.
+    use_vector_priorwork: bool = (
+        os.environ.get("BASKR_USE_VECTOR_PRIORWORK", "").strip().lower()
+        in ("1", "true", "yes", "on")
+    )
+    vector_priorwork_k: int = int(os.environ.get("BASKR_VECTOR_PRIORWORK_K", "5"))
 
     # --- classification throughput knobs ---
     # Bounded concurrency for classify_paper fan-out (engine.run_digest / active_search).
