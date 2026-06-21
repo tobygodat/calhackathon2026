@@ -8,6 +8,7 @@ in setup/teardown, and uses test-only key prefixes.
 from __future__ import annotations
 
 import hashlib
+import os
 import struct
 
 import pytest
@@ -18,7 +19,10 @@ from app.config import Settings
 from app.models import ProfileItemKind
 
 # Dedicated, flushable test DB so we never touch db 0.
-_TEST_REDIS_URL = "redis://localhost:6379/15"
+# RediSearch (FT.CREATE) only works on DB 0, so a dedicated throwaway redis-stack
+# instance on port 6399 is used for index-backed integration tests (flushdb-safe,
+# never touches the dev data on :6379). Override with BASKR_TEST_REDIS_URL.
+_TEST_REDIS_URL = os.environ.get("BASKR_TEST_REDIS_URL", "redis://localhost:6399/0")
 _EMBED_DIM = Settings().embed_dim
 
 

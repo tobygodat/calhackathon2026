@@ -13,8 +13,10 @@ from typing import Any
 
 from .config import SETTINGS, Settings
 
-_client: Any = None
-_index: Any = None
+_client: Any = None      # mirror of most-recent client (back-compat)
+_index: Any = None       # mirror of most-recent index   (back-compat)
+_CLIENTS: dict[str, Any] = {}   # redis_url -> client
+_INDEXES: dict[str, Any] = {}   # index name -> SearchIndex
 
 
 def get_client(settings: Settings = SETTINGS) -> Any:
@@ -23,23 +25,28 @@ def get_client(settings: Settings = SETTINGS) -> Any:
     Socket timeouts are set so a slow/unreachable Redis fails fast instead of
     blocking a request thread indefinitely (e.g. the digest 404 fallback)."""
     global _client
-    if _client is None:
+    client = _CLIENTS.get(settings.redis_url)
+    if client is None:
         import redis as redis_lib
-        _client = redis_lib.from_url(
+        client = redis_lib.from_url(
             settings.redis_url,
             decode_responses=True,
             socket_timeout=2,
             socket_connect_timeout=2,
         )
-    return _client
+        _CLIENTS[settings.redis_url] = client
+    _client = client
+    return client
 
 
 def ensure_papers_index(settings: Settings = SETTINGS) -> Any:
     """Create the RedisVL HNSW/cosine index (dim ``settings.embed_dim``) if absent;
     return the loaded index handle."""
     global _index
-    if _index is not None:
-        return _index
+    cached = _INDEXES.get(settings.papers_index)
+    if cached is not None:
+        _index = cached
+        return cached
 
     from redisvl.index import SearchIndex
     from redisvl.schema import IndexSchema
@@ -76,8 +83,9 @@ def ensure_papers_index(settings: Settings = SETTINGS) -> Any:
     client = get_client(settings)
     index = SearchIndex(schema, redis_client=client)
     index.create(overwrite=False)
+    _INDEXES[settings.papers_index] = index
     _index = index
-    return _index
+    return index
 
 
 def upsert_paper(uid: str, fields: dict[str, Any], embedding: list[float],
@@ -94,13 +102,22 @@ def upsert_paper(uid: str, fields: dict[str, Any], embedding: list[float],
             data[k] = ""
         else:
             data[k] = v
+    # Persist the canonical uid (the key suffix) as a retrievable field so vector
+    # queries can return it even when the caller omits it from ``fields``.
+    data.setdefault("uid", uid)
     data["embedding"] = np.array(embedding, dtype=np.float32).tobytes()
     client.hset(key, mapping=data)
 
 
+# Fields stored as JSON arrays that should be decoded back to lists on read.
+_LIST_FIELDS = ("authors", "categories")
+
+
 def query_similar(embedding: list[float], k: int,
                   settings: Settings = SETTINGS) -> list[dict[str, Any]]:
-    """Vector search the papers index; return top-k paper records."""
+    """Vector search the papers index; return top-k paper records.
+
+    List-valued fields (authors/categories) are JSON-decoded back to lists."""
     from redisvl.query import VectorQuery
     index = ensure_papers_index(settings)
     query = VectorQuery(
@@ -108,12 +125,21 @@ def query_similar(embedding: list[float], k: int,
         vector_field_name="embedding",
         return_fields=[
             "title", "abstract", "source", "source_id",
-            "published", "uid", "doi", "url", "journal",
+            "published", "uid", "doi", "url", "journal", "authors", "categories",
         ],
         num_results=k,
         dtype="float32",
     )
-    return index.query(query)
+    results = index.query(query)
+    for record in results:
+        for field in _LIST_FIELDS:
+            val = record.get(field)
+            if isinstance(val, str) and val:
+                try:
+                    record[field] = json.loads(val)
+                except (ValueError, TypeError):
+                    pass
+    return results
 
 
 def store_digest(date: str, payload: str,
@@ -128,7 +154,10 @@ def load_digest(date: str, settings: Settings = SETTINGS) -> str | None:
     """Read the frozen digest JSON string for ``date`` (or None)."""
     client = get_client(settings)
     key = f"{settings.digest_key_prefix}{date}"
-    return client.get(key)
+    val = client.get(key)
+    if isinstance(val, bytes):
+        return val.decode()
+    return val
 
 
 def reset_clients() -> None:
@@ -136,3 +165,5 @@ def reset_clients() -> None:
     global _client, _index
     _client = None
     _index = None
+    _CLIENTS.clear()
+    _INDEXES.clear()

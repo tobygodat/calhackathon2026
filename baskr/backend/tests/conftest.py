@@ -54,12 +54,10 @@ def _isolate_monitoring(tmp_path_factory, monkeypatch):
 def settings() -> Settings:
     """Settings with obviously-fake keys so no real API calls can succeed."""
     return Settings(
-        openai_api_key="sk-test-openai",
         anthropic_api_key="sk-ant-test",
         redis_url="redis://localhost:6379",
         lab_id="test-lab",
         relevance_threshold=0.5,
-        embed_model="text-embedding-3-small",
         reason_model="claude-sonnet-4-6",
     )
 
@@ -143,3 +141,17 @@ def not_relevant_classification() -> Classification:
         matched_item_id=None,
         confidence=0.1,
     )
+
+
+# ---------------------------------------------------------------------------
+# FastAPI TestClient
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def client():
+    """Yield a FastAPI TestClient for the app (imported lazily)."""
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    return TestClient(app)
