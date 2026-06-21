@@ -1,0 +1,22 @@
+{
+  "lab_id": "gut-microbiome-demo",
+  "niche": "gut_microbiome",
+  "display_name": "Demo Lab",
+  "items": [
+    {
+      "id": "oq_1",
+      "kind": "open_question",
+      "text": "PLACEHOLDER — lab's primary open question. Swap for real gut-microbiome content before the demo (SPEC §3)."
+    },
+    {
+      "id": "asm_1",
+      "kind": "assumption",
+      "text": "PLACEHOLDER — a working assumption the lab currently holds."
+    },
+    {
+      "id": "fnd_1",
+      "kind": "finding",
+      "text": "PLACEHOLDER — a prior finding from the lab."
+    }
+  ]
+}
