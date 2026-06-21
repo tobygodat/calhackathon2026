@@ -8,13 +8,13 @@
       5. return classification
 
 Paper *fetching* is delegated to the existing multi-source pipeline rather than a
-local PubMed module: ``DataPipeline`` (implementations/data_pipeline) returns
-normalized, deduped ``Paper`` objects across PubMed/arXiv/bioRxiv/Nature. Active
-Search and the offline Digest are thin callers of ``classify_paper``.
+local PubMed module: ``DataPipeline`` (system_pieces/data_pipeline) returns
+normalized, deduped ``Paper`` objects across PubMed/arXiv/bioRxiv. Active Search
+and the offline Digest are thin callers of ``classify_paper``.
 
-Import note: ``DataPipeline`` is imported from the repo-root ``implementations``
-package, so the repo root must be on ``sys.path`` (or the package installed). Keep
-the import local to the functions that need it to avoid a hard import at module load.
+Import note: ``DataPipeline`` is imported from the repo-root ``system_pieces``
+package; ``app.__init__`` puts the repo root on ``sys.path``. Keep the import local
+to the functions that need it to avoid a hard import at module load.
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ def active_search(question: str, settings: Settings = SETTINGS) -> list[SearchHi
     the profile (``memory.load_profile``), return non-NOT_RELEVANT hits sorted by
     confidence, capped at ``active_search_cap``.
 
-        from implementations.data_pipeline import DataPipeline
+        from system_pieces.data_pipeline import DataPipeline
     """
     raise NotImplementedError
 

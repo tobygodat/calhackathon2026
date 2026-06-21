@@ -1,11 +1,11 @@
 """Paper ingestion: fetch -> embed -> bulk-load RedisVL (SPEC §6 Digest path).
 
 Replaces the spec's local ``pubmed.py``: the *fetch* step is delegated to the
-existing multi-source ``DataPipeline`` (implementations/data_pipeline), which
-already does esearch/efetch plus arXiv/bioRxiv/Nature and cross-source dedupe.
+existing multi-source ``DataPipeline`` (system_pieces/data_pipeline), which
+already does esearch/efetch plus arXiv/bioRxiv and cross-source dedupe.
 This module only adds the embed + Redis bulk-load on top.
 
-    from implementations.data_pipeline import DataPipeline
+    from system_pieces.data_pipeline import DataPipeline
 """
 
 from __future__ import annotations

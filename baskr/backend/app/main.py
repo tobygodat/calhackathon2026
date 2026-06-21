@@ -3,6 +3,7 @@
 Route surface (CORS open to the Vite dev origin, no auth):
 
     GET  /api/health            -> {"status": "ok"}
+    GET  /status                -> dashboard health (see dev-ui/README.md)
     GET  /api/profile           -> Profile
     POST /api/search            -> list[SearchHit]   (<=5, live)
     GET  /api/digest/history    -> list[DigestSummary]
@@ -15,9 +16,12 @@ response. Handler bodies are stubs.
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from . import status as status_probe
 from .models import (
     DigestEntry,
     DigestSummary,
@@ -41,6 +45,16 @@ app.add_middleware(
 @app.get("/api/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/status")
+def status() -> dict[str, Any]:
+    """Dashboard health/metrics for the dev UI (shape: dev-ui/README.md).
+
+    Degraded-mode safe: probes never raise, so this always returns 200 even when
+    Redis is down or API keys are unset.
+    """
+    return status_probe.get_status()
 
 
 @app.get("/api/profile", response_model=Profile)
