@@ -30,20 +30,36 @@ _JSON_INSTRUCTION = (
 )
 
 
-def build_prompt(items: list[ProfileItem], paper: PaperOut) -> tuple[str, str]:
+def build_prompt(items: list[ProfileItem], paper: PaperOut,
+                 prior_work: list[dict] | None = None) -> tuple[str, str]:
     """Return ``(system, user)`` messages for ``llm.classify`` (SPEC §7).
 
     Deterministic and side-effect-free. ``system`` is ``SYSTEM_PROMPT`` verbatim;
-    ``user`` lists each retrieved profile item as ``- [{id} · {kind}] {text}``,
-    then the paper title + abstract, then the strict-JSON contract block.
+    ``user`` lists each retrieved profile item as ``- [{id} · {kind}] {text}``, an
+    optional PRIOR WORK block of semantically-similar corpus papers, then the paper
+    title + abstract, then the strict-JSON contract block. With ``prior_work`` unset
+    the output is byte-identical to the profile-only prompt.
     """
     item_lines = "\n".join(
         f"- [{it.id} · {it.kind.value}] {it.text}" for it in items
     )
 
+    prior_block = ""
+    if prior_work:
+        prior_lines = "\n".join(
+            f"- {p.get('title', '').strip()}" for p in prior_work if p.get("title")
+        )
+        if prior_lines:
+            prior_block = (
+                "PRIOR WORK (semantically similar papers already in the lab's "
+                "corpus — use to judge novelty/overlap):\n"
+                f"{prior_lines}\n\n"
+            )
+
     user = (
         "LAB PROFILE:\n"
         f"{item_lines}\n\n"
+        f"{prior_block}"
         "NEW PAPER:\n"
         f"Title: {paper.title}\n"
         f"Abstract: {paper.abstract}\n\n"

@@ -58,6 +58,23 @@ def test_structure_snapshot() -> None:
     _, user = build_prompt(_items(), _paper())
     assert user.index("LAB PROFILE:") < user.index("NEW PAPER:")
     assert user.index("NEW PAPER:") < user.index("Return strict JSON only:")
+
+
+def test_user_contains_prior_work_block_when_provided() -> None:
+    prior = [{"uid": "x", "title": "Earlier fiber study"},
+             {"uid": "y", "title": "SCFA review 2024"}]
+    _, user = build_prompt(_items(), _paper(), prior_work=prior)
+    assert "PRIOR WORK" in user
+    assert "Earlier fiber study" in user
+    assert "SCFA review 2024" in user
+    # prior work sits between the lab profile and the new paper
+    assert user.index("LAB PROFILE:") < user.index("PRIOR WORK") < user.index("NEW PAPER:")
+
+
+def test_user_omits_prior_work_block_when_empty() -> None:
+    """No prior_work -> output identical to the profile-only prompt (no block)."""
+    _, user = build_prompt(_items(), _paper(), prior_work=[])
+    assert "PRIOR WORK" not in user
     assert user.startswith("LAB PROFILE:")
 
 

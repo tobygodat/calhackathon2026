@@ -58,6 +58,7 @@ class Settings:
 
     # --- retrieval / engine knobs ---
     memory_top_k: int = 8          # profile items pulled per classification (SPEC §6)
+    corpus_top_k: int = 5          # similar prior papers pulled from the vector corpus
     active_search_cap: int = 5     # max hits returned by /api/search (SPEC §6)
     active_search_days: int = 7    # PubMed lookback window for active search
 

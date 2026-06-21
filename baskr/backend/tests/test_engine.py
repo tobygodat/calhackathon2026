@@ -152,3 +152,38 @@ def test_run_digest_surfaces_all_four_sorted(monkeypatch) -> None:
     assert [h.classification.label for h in hits] == [
         Label.CONTRADICTS, Label.VERIFIES, Label.EXTENDS, Label.TANGENTIAL,
     ]
+
+
+def test_retrieve_prior_work_uses_corpus_filters_self_and_caps(monkeypatch) -> None:
+    """_retrieve_prior_work pulls from the vector corpus (query_similar), drops the
+    paper itself, and caps at corpus_top_k."""
+    from app.config import SETTINGS
+
+    paper = _paper(1)  # uid "pubmed:1"
+    records = [
+        {"uid": "pubmed:1", "title": "the paper itself"},  # must be filtered out
+        {"uid": "pubmed:99", "title": "neighbour A"},
+        {"uid": "pubmed:98", "title": "neighbour B"},
+        {"uid": "pubmed:97", "title": "neighbour C"},
+        {"uid": "pubmed:96", "title": "neighbour D"},
+        {"uid": "pubmed:95", "title": "neighbour E"},
+        {"uid": "pubmed:94", "title": "neighbour F"},
+    ]
+    monkeypatch.setattr("app.redis_client.query_similar", lambda *a, **k: records)
+
+    prior = engine._retrieve_prior_work([0.1] * 4, paper, SETTINGS)
+
+    assert all(p["uid"] != "pubmed:1" for p in prior)   # self filtered
+    assert len(prior) == SETTINGS.corpus_top_k          # capped
+    assert prior[0]["title"] == "neighbour A"
+
+
+def test_retrieve_prior_work_degrades_when_corpus_unavailable(monkeypatch) -> None:
+    """If the corpus/Redis raises, prior-work retrieval returns [] (offline-safe)."""
+    from app.config import SETTINGS
+
+    def boom(*a, **k):
+        raise ConnectionError("no redis")
+
+    monkeypatch.setattr("app.redis_client.query_similar", boom)
+    assert engine._retrieve_prior_work([0.1] * 4, _paper(1), SETTINGS) == []
