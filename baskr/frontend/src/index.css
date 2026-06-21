@@ -20,7 +20,8 @@
     border-color 0.2s,
     color 0.2s;
 }
-.search-pill:hover {
+.search-pill:hover,
+.search-pill:focus-within {
   width: 300px;
 }
 
@@ -31,4 +32,31 @@
 .lc-scroll::-webkit-scrollbar-thumb {
   background: #34383d;
   border-radius: 5px;
+}
+
+/* Page-load entrance — one orchestrated sequence: the greeting rises, the paper
+   covers deal in (staggered via inline animation-delay), captions settle last.
+   `both` holds the start frame before the delay so nothing flashes early. */
+@keyframes baskr-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.baskr-rise {
+  animation: baskr-rise 0.6s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+/* Covers "settle" — a hair of overshoot so they land like a placed page. */
+.baskr-deal {
+  animation: baskr-rise 0.55s cubic-bezier(0.34, 1.2, 0.64, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .baskr-rise,
+  .baskr-deal {
+    animation: none;
+  }
 }
