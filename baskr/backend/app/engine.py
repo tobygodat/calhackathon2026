@@ -2,102 +2,86 @@
 
     classify_paper(paper, profile):
       1. embed(paper.abstract)                          # embeddings.py / OpenAI
-      2. retrieve top-k profile items from memory       # memory.py
+      2. retrieve top-k profile items from Agent Memory # memory.py, semantic, k≈8
       3. build_prompt(profile_items, paper)             # prompts.py (§7)
       4. Claude -> {label, reason, matched_item_id, confidence}   # llm.py
       5. return classification
 
-Paper fetching is delegated to ingest.py (DataPipeline adapter).
+Paper *fetching* is delegated to the existing multi-source pipeline rather than a
+local PubMed module: ``DataPipeline`` (system_pieces/data_pipeline) returns
+normalized, deduped ``Paper`` objects across PubMed/arXiv/bioRxiv. Active Search
+and the offline Digest are thin callers of ``classify_paper``.
+
+Import note: ``DataPipeline`` is imported from the repo-root ``system_pieces``
+package; ``app.__init__`` puts the repo root on ``sys.path``. Keep the import local
+to the functions that need it to avoid a hard import at module load.
 """
 
 from __future__ import annotations
 
+from . import llm, memory
 from .config import SETTINGS, Settings
+from .embeddings import embed_text
 from .models import Classification, Label, PaperOut, Profile, SearchHit
+from .prompts import build_prompt
 
 
 def classify_paper(paper: PaperOut, profile: Profile,
                    settings: Settings = SETTINGS) -> Classification:
-    """Run the 5-step engine for one paper against the lab profile (SPEC §6)."""
-    from .embeddings import embed_text
-    from .llm import classify
-    from .memory import retrieve_relevant
-    from .prompts import build_prompt
+    """Run the 5-step engine for one paper against the lab profile (SPEC §6).
 
-    # Step 1: embed the paper abstract (skip if empty)
-    if paper.abstract:
-        try:
-            embed_text(paper.abstract, settings=settings)
-        except Exception:
-            pass  # embedding is optional for prompt-based classification
+    ``profile`` is the lab context (from ``memory.load_profile``); step 2 narrows it
+    to the semantic top-k via ``memory.retrieve_relevant`` before prompting.
+    """
+    # 1. embed the abstract (kept for the semantic contract; the retrieval call
+    #    below re-embeds via the same deterministic/OpenAI path).
+    embed_text(paper.abstract, settings)
 
-    # Step 2: retrieve relevant profile items
-    items = retrieve_relevant(paper.abstract or paper.title, settings=settings)
+    # 2. retrieve top-k profile items semantically against title + abstract.
+    query = f"{paper.title} {paper.abstract}".strip()
+    items = memory.retrieve_relevant(query, k=settings.memory_top_k, settings=settings)
 
-    # Step 3: build prompt
+    # 3. build the (system, user) prompt (SPEC §7).
     system, user = build_prompt(items, paper)
 
-    # Step 4: call Claude
-    classification = classify(system, user, settings=settings)
-
-    return classification
+    # 4 + 5. Claude (or degraded fallback) -> parsed, threshold-collapsed Classification.
+    return llm.classify(system, user, settings)
 
 
 def active_search(question: str, settings: Settings = SETTINGS) -> list[SearchHit]:
-    """Live surface: fetch recent papers, classify each, return relevant hits."""
-    from .ingest import fetch_recent
-    from .memory import load_profile
+    """Live surface: fetch recent papers via ``DataPipeline``, classify each against
+    the profile (``memory.load_profile``), return non-NOT_RELEVANT hits sorted by
+    confidence, capped at ``active_search_cap``.
 
-    profile = load_profile(settings=settings)
+        from system_pieces.data_pipeline import DataPipeline
+    """
+    from .ingest import fetch_recent  # noqa: PLC0415  (local: keep app boot light)
 
-    # Build a gut-microbiome focused query combining the user question
-    gut_query = f"gut microbiome {question}" if "microbiome" not in question.lower() else question
-
-    papers = fetch_recent(
-        query=gut_query,
-        days=settings.active_search_days,
-        max_per_source=20,
-        settings=settings,
-    )
+    papers = fetch_recent(question, settings.active_search_days, settings=settings)
+    profile = memory.load_profile(settings)
 
     hits: list[SearchHit] = []
     for paper in papers:
-        try:
-            classification = classify_paper(paper, profile, settings=settings)
-        except Exception as exc:
-            # If classification fails (e.g., no API key), mark as NOT_RELEVANT
-            classification = Classification(
-                label=Label.NOT_RELEVANT,
-                reason=f"Classification unavailable: {exc}",
-                matched_item_id=None,
-                confidence=0.0,
-            )
+        classification = classify_paper(paper, profile, settings)
+        if classification.label is Label.NOT_RELEVANT:
+            continue
+        hits.append(SearchHit(paper=paper, classification=classification))
 
-        if classification.label != Label.NOT_RELEVANT:
-            hits.append(SearchHit(paper=paper, classification=classification))
-
-    # Sort by confidence descending, cap at active_search_cap
     hits.sort(key=lambda h: h.classification.confidence, reverse=True)
     return hits[: settings.active_search_cap]
 
 
 def run_digest(date: str, papers: list[PaperOut],
                settings: Settings = SETTINGS) -> list[SearchHit]:
-    """Offline surface: classify a day's papers, keep non-NOT_RELEVANT hits."""
-    from .memory import load_profile
+    """Offline surface: classify a day's papers, keep non-NOT_RELEVANT hits.
+    Callers persist the result (see scripts/freeze_digest.py)."""
+    profile = memory.load_profile(settings)
 
-    profile = load_profile(settings=settings)
     hits: list[SearchHit] = []
     for paper in papers:
-        try:
-            classification = classify_paper(paper, profile, settings=settings)
-        except Exception:
-            classification = Classification(
-                label=Label.NOT_RELEVANT,
-                reason="Classification unavailable.",
-                matched_item_id=None,
-                confidence=0.0,
-            )
-        if classification.label != Label.NOT_RELEVANT:
-            hits.append(SearchHit(paper=paper, classification=classification))
+        classification = classify_paper(paper, profile, settings)
+        if classification.label is Label.NOT_RELEVANT:
+            continue
+        hits.append(SearchHit(paper=paper, classification=classification))
+
     return hits

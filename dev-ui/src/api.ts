@@ -1,6 +1,10 @@
 import type {
+  DigestEntry,
+  DigestSummary,
   PipelineSearchRequest,
   PipelineSearchResult,
+  Profile,
+  SearchHit,
   ServiceConnection,
   StatusResponse,
   SystemStatus,
@@ -122,6 +126,55 @@ export async function fetchPipeline(
       errors: { request: err instanceof Error ? err.message : "Unknown error" },
       counts: {},
     };
+  }
+}
+
+export async function fetchProfile(): Promise<Profile | null> {
+  try {
+    const res = await fetch("/api/profile", { signal: AbortSignal.timeout(8_000) });
+    if (!res.ok) return null;
+    return (await res.json()) as Profile;
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchSearch(question: string): Promise<SearchHit[] | null> {
+  try {
+    const res = await fetch("/api/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as SearchHit[];
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchDigestHistory(): Promise<DigestSummary[] | null> {
+  try {
+    const res = await fetch("/api/digest/history", {
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as DigestSummary[];
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchDigest(date: string): Promise<DigestEntry[] | null> {
+  try {
+    const res = await fetch(`/api/digest/${date}`, {
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as DigestEntry[];
+  } catch {
+    return null;
   }
 }
 

@@ -100,3 +100,18 @@ class MemoryWriteRequest(BaseModel):
     """POST /api/profile/memory (stretch)."""
     kind: ProfileItemKind
     text: str
+
+
+class PipelineSearchRequest(BaseModel):
+    """POST /api/pipeline/search — dev UI pipeline panel."""
+    query: str
+    days: int = 7
+    sources: list[str] | None = None
+    max_results: int = 50
+
+
+class PipelineSearchResult(BaseModel):
+    """Response shape for POST /api/pipeline/search."""
+    papers: list[PaperOut]
+    errors: dict[str, str] = Field(default_factory=dict)
+    counts: dict[str, int] = Field(default_factory=dict)
