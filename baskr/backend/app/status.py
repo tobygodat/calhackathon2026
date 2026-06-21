@@ -90,10 +90,16 @@ def _probe_langcache(settings: Settings) -> dict[str, Any]:
 
 
 def _probe_key_present(value: str | None) -> dict[str, Any]:
-    """Presence-only probe for an API-key-gated service (no network call)."""
+    """Presence-only probe for an API-key-gated service.
+
+    Deliberately makes NO network call: ``/status`` is polled frequently and a paid
+    embeddings/messages round-trip per poll would burn tokens. Presence of the key
+    is reported as ``configured``; absence as ``not configured`` (degraded mode —
+    the embeddings/LLM layers still run via their deterministic fallbacks).
+    """
     if value:
         return {"ok": True, "status": "configured"}
-    return {"ok": False, "status": "unknown", "detail": "not configured"}
+    return {"ok": False, "status": "not configured", "detail": "no API key; using degraded fallback"}
 
 
 def _safe(probe, *args: Any) -> dict[str, Any]:

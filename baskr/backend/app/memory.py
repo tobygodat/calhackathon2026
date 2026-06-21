@@ -23,6 +23,7 @@ embedded items while keeping this signature.
 from __future__ import annotations
 
 import json
+import math
 import re
 from typing import Any
 
@@ -107,14 +108,60 @@ def _overlap_score(query_tokens: set[str], item: ProfileItem) -> float:
     return intersection / union if union else 0.0
 
 
+def _cosine(a: list[float], b: list[float]) -> float:
+    """Cosine similarity of two equal-length vectors (0.0 on degenerate input)."""
+    dot = sum(x * y for x, y in zip(a, b))
+    na = math.sqrt(sum(x * x for x in a))
+    nb = math.sqrt(sum(y * y for y in b))
+    if na == 0.0 or nb == 0.0:
+        return 0.0
+    return dot / (na * nb)
+
+
+def _semantic_rank(query: str, items: list[ProfileItem], k: int,
+                   settings: Settings) -> list[ProfileItem] | None:
+    """Rank items by cosine similarity of embeddings vs the embedded query.
+
+    Returns ``None`` to signal "fall back to lexical" if embeddings are unavailable
+    (import failure or empty output). Phase 2 semantic path (SPEC §6); works with the
+    deterministic embedder when no OpenAI key is present.
+    """
+    try:
+        from .embeddings import embed_batch, embed_text  # noqa: PLC0415
+
+        query_vec = embed_text(query, settings)
+        item_vecs = embed_batch([it.text for it in items], settings)
+    except Exception:  # noqa: BLE001  (any embedding failure -> lexical fallback)
+        return None
+
+    if not query_vec or len(item_vecs) != len(items):
+        return None
+
+    ranked = sorted(
+        zip(items, item_vecs),
+        key=lambda pair: (_cosine(query_vec, pair[1]), pair[0].id),
+        reverse=True,
+    )
+    return [it for it, _ in ranked[:k]]
+
+
 def retrieve_relevant(query: str, k: int = SETTINGS.memory_top_k,
                       settings: Settings = SETTINGS) -> list[ProfileItem]:
     """Top-k retrieval of profile items for a paper/query (SPEC §6).
 
-    Uses a deterministic lexical token-overlap ranker (placeholder until semantic
-    embeddings land in a later phase). Ties break on item id for stability.
+    Prefers a **semantic** ranker — cosine similarity over embedded profile items vs
+    the embedded query (Phase 2). Falls back to the deterministic lexical
+    token-overlap ranker when embeddings are unavailable. Signature is unchanged so
+    Phase 1 callers/tests keep working; ties break on item id for stability.
     """
     items = load_profile(settings).items
+    if not items:
+        return []
+
+    semantic = _semantic_rank(query, items, k, settings)
+    if semantic is not None:
+        return semantic
+
     query_tokens = _tokenize(query)
     ranked = sorted(
         items,

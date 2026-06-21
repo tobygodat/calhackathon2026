@@ -1,12 +1,12 @@
 # Baskr Build Status
-Updated: 2026-06-21T03:05:00Z   State: IN_PROGRESS
+Updated: 2026-06-21T03:25:00Z   State: IN_PROGRESS
 
 | Phase | Name                          | Status | Checks passing | Notes |
 |-------|-------------------------------|--------|----------------|-------|
 | 0     | Foundations & boot            | DONE   | 4/4            | verified by director |
 | 1     | Redis architecture            | DONE   | 5/5            | live redis; RedisVL+brute-force fallback |
-| 2     | Embeddings · LLM · prompts    | NEXT   | 0/3            | no keys → degraded mode; paused for review |
-| 3     | Engine · ingest · seed        | TODO   | 0/3            | |
+| 2     | Embeddings · LLM · prompts    | DONE   | 4/4            | tool-use JSON; deterministic keyless fallbacks |
+| 3     | Engine · ingest · seed        | NEXT   | 0/3            | paused for review |
 | 4     | API surface                   | TODO   | 0/4            | |
 | 5     | Dev UI comprehensive view     | TODO   | 0/3            | |
 | 6     | Agent loop & streaming        | TODO   | 0/3            | |
@@ -27,6 +27,13 @@ Updated: 2026-06-21T03:05:00Z   State: IN_PROGRESS
 - `/status` shows redis/redisvl/streams/agent_memory/langcache ok:true with real
   details; metrics corpus_index_docs/memory_records/stream_length from live reads.
 - Tests: 18 pass (4 Phase-0 smoke, 9 redis-unit/fakeredis, 5 redis-integration/live).
+- Embeddings: embed_text/embed_batch → 1536-dim L2-normalized (OpenAI live, deterministic
+  hashed fallback keyless). LLM: classify() → schema-valid Classification (Anthropic
+  forced-tool-use JSON live, rule-based fallback keyless); sub-threshold→NOT_RELEVANT
+  collapse centralized in _apply_threshold for both paths. prompts.build_prompt = exact
+  SPEC §7. memory.retrieve_relevant now semantic-cosine (lexical fallback).
+- REASON_MODEL pinned to claude-sonnet-4-6 (config + .env.example).
+- Tests now 39 pass (+21: prompts, embeddings, llm, memory-semantic).
 
 ## Not working / blocked
 - No RediSearch module on local redis (Docker layer egress 403-blocked) → vector
@@ -37,4 +44,4 @@ Updated: 2026-06-21T03:05:00Z   State: IN_PROGRESS
 - Backend route bodies (profile/search/digest) still NotImplementedError (Phase 4).
 
 ## Decisions logged this run
-- See claude-chats-hack/ARCHITECTURE_DECISIONS.md (entries 1–6).
+- See claude-chats-hack/ARCHITECTURE_DECISIONS.md (entries 1–7).

@@ -27,9 +27,8 @@ class Settings:
     # --- models ---
     embed_model: str = os.environ.get("EMBED_MODEL", "text-embedding-3-small")
     embed_dim: int = 1536  # text-embedding-3-small
-    # TODO(build-time): confirm current recommended claude-* model (SPEC §4) before
-    # hardcoding a default here.
-    reason_model: str | None = os.environ.get("REASON_MODEL")
+    # Default confirmed at build time (SPEC §4); overridable via REASON_MODEL.
+    reason_model: str = os.environ.get("REASON_MODEL") or "claude-sonnet-4-6"
 
     # --- retrieval / engine knobs ---
     memory_top_k: int = 8          # profile items pulled per classification (SPEC §6)

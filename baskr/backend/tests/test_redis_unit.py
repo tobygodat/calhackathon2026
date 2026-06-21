@@ -52,7 +52,12 @@ def test_memory_append_assigns_unique_ids(settings) -> None:
     assert len(ids) == 2
 
 
-def test_memory_retrieve_relevant_ranks_by_overlap(settings) -> None:
+def test_memory_retrieve_relevant_ranks_by_overlap(settings, monkeypatch) -> None:
+    # This test exercises the LEXICAL fallback ranker specifically. Phase 2 made the
+    # semantic embedding path the default; the deterministic hashed embedder carries
+    # no lexical semantics, so force the lexical fallback here.
+    monkeypatch.setattr(memory, "_semantic_rank", lambda *a, **k: None)
+
     memory.append_item(ProfileItemKind.FINDING, "butyrate increases regulatory T cells in the gut", settings)
     memory.append_item(ProfileItemKind.ASSUMPTION, "diet composition is stable across subjects", settings)
     memory.append_item(ProfileItemKind.OPEN_QUESTION, "how does fiber intake affect butyrate production", settings)
