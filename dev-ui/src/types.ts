@@ -9,6 +9,12 @@ export interface ServiceConnection {
   detail?: string;
 }
 
+export interface PipelineSourceMetrics {
+  papers_fetched: number;
+  last_fetch_at?: string;
+  error?: string;
+}
+
 export interface SystemMetrics {
   filesProcessedLastHour: number;
   filesProcessedTotal: number;
@@ -21,6 +27,12 @@ export interface SystemMetrics {
   langCacheHitRate?: number;
   lastProcessedAt?: string;
   consumerLastHeartbeat?: string;
+  // Pipeline-specific metrics
+  pipelineSourceCounts?: Record<string, number>;
+  pipelineDedupeRatio?: number;   // 0-1: (pre-dedupe - post-dedupe) / pre-dedupe
+  pipelineLastQuery?: string;
+  pipelineLastResultCount?: number;
+  pipelineSourceErrors?: Record<string, string>;
 }
 
 export interface SystemStatus {
@@ -32,7 +44,9 @@ export interface SystemStatus {
   source: "live";
 }
 
-export type PipelineSource = "pubmed" | "arxiv" | "biorxiv" | "nature";
+// WARNING: NATURE SOURCE IS DISABLED — DO NOT RE-ENABLE WITHOUT EXPLICIT REQUEST
+// "nature" has been removed from PipelineSource. Do not add it back unless specifically asked.
+export type PipelineSource = "pubmed" | "arxiv" | "biorxiv"; // | "nature"
 
 export interface Paper {
   source: PipelineSource;
@@ -77,6 +91,12 @@ export interface StatusResponse {
     langcache_hit_rate?: number;
     last_processed_at?: string;
     consumer_last_heartbeat?: string;
+    // Pipeline-specific metrics surfaced by the backend
+    pipeline_source_counts?: Record<string, number>;
+    pipeline_dedupe_ratio?: number;
+    pipeline_last_query?: string;
+    pipeline_last_result_count?: number;
+    pipeline_source_errors?: Record<string, string>;
   };
   redis_sources?: string[];
 }

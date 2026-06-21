@@ -2,10 +2,11 @@ import { useCallback, useEffect, useState } from "react";
 import { fetchStatus } from "./api";
 import { ConnectionsPanel } from "./components/ConnectionsPanel";
 import { MetricCards } from "./components/MetricCards";
+import { PipelineMetricsPanel } from "./components/PipelineMetricsPanel";
 import { PipelinePanel } from "./components/PipelinePanel";
 import { RedisSourcesPanel } from "./components/RedisSourcesPanel";
 import { StatusDot } from "./components/StatusBadge";
-import type { SystemStatus } from "./types";
+import type { PipelineSearchResult, SystemStatus } from "./types";
 
 const POLL_MS = 10_000;
 
@@ -27,6 +28,9 @@ export default function App() {
   const [status, setStatus] = useState<SystemStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [lastAttempt, setLastAttempt] = useState<Date | null>(null);
+  const [lastPipelineResult, setLastPipelineResult] =
+    useState<PipelineSearchResult | null>(null);
+  const [lastPipelineQuery, setLastPipelineQuery] = useState("");
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -97,7 +101,17 @@ export default function App() {
             <MetricCards metrics={status.metrics} />
             <ConnectionsPanel connections={status.connections} />
             <RedisSourcesPanel sources={status.redisSources} />
-            <PipelinePanel />
+            <PipelineMetricsPanel
+              metrics={status.metrics}
+              lastResult={lastPipelineResult}
+              lastQuery={lastPipelineQuery}
+            />
+            <PipelinePanel
+              onResult={(query, result) => {
+                setLastPipelineQuery(query);
+                setLastPipelineResult(result);
+              }}
+            />
           </>
         ) : (
           <EmptyState />

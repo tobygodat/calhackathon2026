@@ -81,23 +81,46 @@ class DataPipeline:
     @staticmethod
     def _dedupe(papers: list[Paper]) -> list[Paper]:
         """Collapse duplicates by DOI first, then by normalized-title hash.
-        Keep the copy with the longest abstract (most signal for the model)."""
-        best: dict[str, Paper] = {}
-        for p in papers:
-            for key in (p.uid, f"fp:{p.fingerprint}"):
-                existing = best.get(key)
-                if existing is None or len(p.abstract) > len(existing.abstract):
-                    best[key] = p
+        Keep the copy with the longest abstract (most signal for the model).
 
-        # A paper can be reachable via both its uid and its fingerprint; keep
-        # one object per identity.
+        Algorithm:
+        1. Build a uid→best map and a fingerprint→best map in tandem.
+           When the same fingerprint appears under multiple UIDs, the
+           fingerprint map always holds the winner (longest abstract).
+        2. Emit only the papers that the fingerprint map agrees are the
+           canonical representative — this prevents a paper that lost on
+           fingerprint from sneaking through via its uid key.
+        """
+        best_by_uid: dict[str, Paper] = {}
+        best_by_fp: dict[str, Paper] = {}
+
+        for p in papers:
+            fp = f"fp:{p.fingerprint}"
+            # uid slot
+            existing_uid = best_by_uid.get(p.uid)
+            if existing_uid is None or len(p.abstract) > len(existing_uid.abstract):
+                best_by_uid[p.uid] = p
+            # fingerprint slot
+            existing_fp = best_by_fp.get(fp)
+            if existing_fp is None or len(p.abstract) > len(existing_fp.abstract):
+                best_by_fp[fp] = p
+
+        # The fingerprint map is the authority for cross-source dedup.
+        # Only include a uid-winner if it is also the fingerprint-winner for
+        # its title cluster.
+        fp_winners: set[int] = {id(p) for p in best_by_fp.values()}
+
         seen: set[int] = set()
         deduped: list[Paper] = []
-        for p in best.values():
-            if id(p) in seen:
+        for p in best_by_uid.values():
+            fp_winner = best_by_fp.get(f"fp:{p.fingerprint}")
+            # Prefer the fingerprint-winner object; only fall back to the
+            # uid-winner if no fingerprint winner exists (shouldn't happen).
+            canonical = fp_winner if fp_winner is not None else p
+            if id(canonical) in seen:
                 continue
-            seen.add(id(p))
-            deduped.append(p)
+            seen.add(id(canonical))
+            deduped.append(canonical)
 
         deduped.sort(key=lambda p: p.published or "", reverse=True)
         return deduped
