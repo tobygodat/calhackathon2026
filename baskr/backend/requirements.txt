@@ -3,7 +3,6 @@ uvicorn[standard]
 pydantic>=2
 redis
 redisvl
-openai
 anthropic
 # Paper fetching is provided by implementations/data_pipeline (stdlib + requests).
 requests

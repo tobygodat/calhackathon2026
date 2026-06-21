@@ -21,16 +21,12 @@ const SERVICE_MAP: Record<
   arxiv: { id: "arxiv", label: "arXiv", category: "source" },
   biorxiv: { id: "biorxiv", label: "bioRxiv / medRxiv", category: "source" },
   medrxiv: { id: "biorxiv", label: "bioRxiv / medRxiv", category: "source" },
-  // WARNING: NATURE SOURCE IS DISABLED — DO NOT RE-ENABLE WITHOUT EXPLICIT REQUEST
-  // nature: { id: "nature", label: "Nature / Springer", category: "source" },
-  // springer: { id: "nature", label: "Nature / Springer", category: "source" },
   redis: { id: "redis", label: "Redis Cloud", category: "redis" },
   redisvl: { id: "redisvl", label: "RedisVL (corpus index)", category: "redis" },
   stream: { id: "streams", label: "Redis Streams", category: "redis" },
   streams: { id: "streams", label: "Redis Streams", category: "redis" },
   agent_memory: { id: "agent_memory", label: "Agent Memory", category: "redis" },
   langcache: { id: "langcache", label: "LangCache", category: "redis" },
-  openai: { id: "openai", label: "OpenAI Embeddings", category: "api" },
   anthropic: { id: "anthropic", label: "Anthropic Claude", category: "api" },
   consumer: { id: "fastapi", label: "FastAPI + Agent Consumer", category: "api" },
   fastapi: { id: "fastapi", label: "FastAPI + Agent Consumer", category: "api" },
@@ -65,12 +61,6 @@ function normalizeConnections(
   });
 }
 
-function healthyPercent(connections: ServiceConnection[]): number {
-  if (connections.length === 0) return 0;
-  const healthy = connections.filter((c) => c.status === "healthy").length;
-  return Math.round((healthy / connections.length) * 100);
-}
-
 function normalizeStatus(data: StatusResponse): SystemStatus {
   const connections = normalizeConnections(data.connections);
   const m = data.metrics;
@@ -81,7 +71,9 @@ function normalizeStatus(data: StatusResponse): SystemStatus {
     metrics: {
       filesProcessedLastHour: m.papers_processed_last_hour ?? 0,
       filesProcessedTotal: m.papers_processed_total ?? 0,
-      connectionsHealthyPercent: healthyPercent(connections),
+      connectionsHealthy: connections.filter((c) => c.status === "healthy").length,
+      connectionsTotal: connections.length,
+      newPapersSeen: m.new_papers_seen ?? 0,
       alertsFiredLastHour: m.alerts_fired_last_hour ?? 0,
       corpusIndexDocs: m.corpus_index_docs ?? 0,
       streamQueueLength: m.stream_length ?? 0,

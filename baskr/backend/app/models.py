@@ -48,7 +48,7 @@ class Profile(BaseModel):
 # --- paper (mirrors data_pipeline Paper.to_dict()) --------------------------
 
 class PaperOut(BaseModel):
-    source: str          # "pubmed" | "arxiv" | "biorxiv" | "nature"
+    source: str          # "pubmed" | "arxiv" | "biorxiv"
     source_id: str
     title: str
     abstract: str = ""
