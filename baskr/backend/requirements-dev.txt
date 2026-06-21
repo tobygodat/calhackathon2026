@@ -1,0 +1,6 @@
+# Test-only dependencies for the Baskr backend suite.
+# Install alongside runtime deps:
+#   pip install -r requirements.txt -r requirements-dev.txt
+pytest
+httpx          # required by fastapi.testclient.TestClient
+fakeredis      # in-memory Redis for redis_client / consumer unit tests
