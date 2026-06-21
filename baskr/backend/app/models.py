@@ -68,6 +68,7 @@ class Classification(BaseModel):
     reason: str
     matched_item_id: str | None = None
     confidence: float = Field(ge=0.0, le=1.0)
+    new_memory: str | None = None  # "Remember" step: durable fact to write back (§7)
 
 
 # --- digest (SPEC §5.4) -----------------------------------------------------
