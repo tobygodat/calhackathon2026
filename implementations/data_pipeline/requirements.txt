@@ -1,2 +1,5 @@
 # Data pipeline dependencies. Stdlib handles XML parsing; requests handles HTTP.
 requests>=2.31
+
+# Error monitoring — captures unhandled exceptions from the pipeline / CLI.
+sentry-sdk>=2.0
