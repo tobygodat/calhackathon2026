@@ -29,6 +29,24 @@ if str(_CALHACK_ROOT) not in sys.path:
 
 
 # ---------------------------------------------------------------------------
+# Monitoring isolation
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(autouse=True)
+def _isolate_monitoring(tmp_path_factory, monkeypatch):
+    """Repoint the monitoring CSV logs at a throwaway dir and reset in-memory
+    state, so /status / pipeline tests never touch the real data/ CSVs."""
+    import app.monitoring as mon
+
+    d = tmp_path_factory.mktemp("monitoring")
+    monkeypatch.setattr(mon, "NEW_PAPERS_CSV", d / "new_papers_seen.csv")
+    monkeypatch.setattr(mon, "STATUS_LOG_CSV", d / "service_status_log.csv")
+    mon.reset_state()
+    yield
+    mon.reset_state()
+
+
+# ---------------------------------------------------------------------------
 # Settings
 # ---------------------------------------------------------------------------
 
@@ -36,12 +54,10 @@ if str(_CALHACK_ROOT) not in sys.path:
 def settings() -> Settings:
     """Settings with obviously-fake keys so no real API calls can succeed."""
     return Settings(
-        openai_api_key="sk-test-openai",
         anthropic_api_key="sk-ant-test",
         redis_url="redis://localhost:6379",
         lab_id="test-lab",
         relevance_threshold=0.5,
-        embed_model="text-embedding-3-small",
         reason_model="claude-sonnet-4-6",
     )
 
@@ -125,3 +141,17 @@ def not_relevant_classification() -> Classification:
         matched_item_id=None,
         confidence=0.1,
     )
+
+
+# ---------------------------------------------------------------------------
+# FastAPI TestClient
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def client():
+    """Yield a FastAPI TestClient for the app (imported lazily)."""
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    return TestClient(app)

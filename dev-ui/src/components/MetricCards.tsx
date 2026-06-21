@@ -56,8 +56,8 @@ export function MetricCards({ metrics }: { metrics: SystemMetrics | null }) {
         />
         <MetricCard
           label="Connections healthy"
-          value={m != null ? `${m.connectionsHealthyPercent}%` : "—"}
-          sub="All monitored services"
+          value={m != null ? `${m.connectionsHealthy}/${m.connectionsTotal}` : "—"}
+          sub="healthy / total services"
           highlight
           pending={m == null}
         />
@@ -71,6 +71,12 @@ export function MetricCards({ metrics }: { metrics: SystemMetrics | null }) {
           label="Corpus index docs"
           value={m != null ? m.corpusIndexDocs.toLocaleString() : "—"}
           sub="RedisVL idx:baskr-corpus"
+          pending={m == null}
+        />
+        <MetricCard
+          label="New papers seen"
+          value={m != null ? m.newPapersSeen.toLocaleString() : "—"}
+          sub="Distinct papers via pipeline"
           pending={m == null}
         />
         <MetricCard

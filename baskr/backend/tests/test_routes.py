@@ -2,30 +2,24 @@
 
 Routes use lazy imports. We patch at the SOURCE modules:
   - app.memory.load_profile     (get_profile, add_memory routes)
-  - app.engine.active_search    (search route)
   - app.memory.append_item      (add_memory route)
-  - app.main._DIGEST_DIR        (digest history/date routes read JSON files)
-  - app.redis_client.load_digest (digest/{date} fallback)
+  - app.main._probe             (/status probes — patched to avoid network)
 """
 
 from __future__ import annotations
 
+import io
 import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
 from app.models import (
-    Classification,
-    Label,
-    MemoryWriteRequest,
-    PaperOut,
     Profile,
     ProfileItem,
     ProfileItemKind,
-    SearchHit,
 )
 
 
@@ -48,42 +42,6 @@ def _make_profile() -> Profile:
                         text="How does fiber affect microbiome?"),
         ],
     )
-
-
-def _make_search_hit(label: Label = Label.ANSWERS,
-                     confidence: float = 0.85) -> SearchHit:
-    paper = PaperOut(
-        source="pubmed",
-        source_id="99999",
-        title="Fiber and Akkermansia",
-        abstract="We studied fiber effects on Akkermansia.",
-        authors=["Smith J"],
-        published="2024-03-15",
-    )
-    classification = Classification(
-        label=label,
-        reason="Directly addresses the open question.",
-        matched_item_id="oq_1",
-        confidence=confidence,
-    )
-    return SearchHit(paper=paper, classification=classification)
-
-
-def _digest_entry(source_id: str = "1", label: str = "ANSWERS") -> dict:
-    return {
-        "date": "2024-03-15",
-        "paper": {
-            "source": "pubmed", "source_id": source_id,
-            "title": f"Paper {source_id}", "abstract": "Abstract.",
-            "authors": ["A"], "doi": None, "url": None,
-            "journal": None, "published": "2024-03-15",
-            "categories": [], "uid": None,
-        },
-        "classification": {
-            "label": label, "reason": "r",
-            "matched_item_id": None, "confidence": 0.8,
-        },
-    }
 
 
 # ---------------------------------------------------------------------------
@@ -126,153 +84,22 @@ class TestProfileRoute:
 
 
 # ---------------------------------------------------------------------------
-# POST /api/search
+# No search / digest / pipeline routes remain
 # ---------------------------------------------------------------------------
 
-class TestSearchRoute:
-    def test_returns_200(self, client):
-        with patch("app.engine.active_search", return_value=[_make_search_hit()]):
-            assert client.post("/api/search",
-                               json={"question": "fiber"}).status_code == 200
-
-    def test_returns_list(self, client):
-        with patch("app.engine.active_search", return_value=[_make_search_hit()]):
-            data = client.post("/api/search", json={"question": "q"}).json()
-        assert isinstance(data, list)
-
-    def test_hit_has_paper_and_classification(self, client):
-        with patch("app.engine.active_search", return_value=[_make_search_hit()]):
-            item = client.post("/api/search", json={"question": "q"}).json()[0]
-        assert "paper" in item
-        assert "classification" in item
-
-    def test_classification_label_and_confidence(self, client):
-        hit = _make_search_hit(Label.EXTENDS, 0.72)
-        with patch("app.engine.active_search", return_value=[hit]):
-            cl = client.post("/api/search",
-                             json={"question": "q"}).json()[0]["classification"]
-        assert cl["label"] == "EXTENDS"
-        assert cl["confidence"] == pytest.approx(0.72)
-
-    def test_empty_results(self, client):
-        with patch("app.engine.active_search", return_value=[]):
-            data = client.post("/api/search", json={"question": "q"}).json()
-        assert data == []
-
-    def test_missing_question_returns_422(self, client):
-        assert client.post("/api/search", json={}).status_code == 422
-
-    def test_engine_error_returns_500(self, client):
-        with patch("app.engine.active_search",
-                   side_effect=RuntimeError("API down")):
-            assert client.post("/api/search",
-                               json={"question": "q"}).status_code == 500
-
-    def test_question_forwarded_to_engine(self, client):
-        captured = []
-        with patch("app.engine.active_search",
-                   side_effect=lambda q: captured.append(q) or []):
-            client.post("/api/search", json={"question": "fiber microbiome"})
-        assert captured == ["fiber microbiome"]
-
-    def test_paper_source_field_present(self, client):
-        with patch("app.engine.active_search", return_value=[_make_search_hit()]):
-            paper = client.post("/api/search",
-                                json={"question": "q"}).json()[0]["paper"]
-        assert "source" in paper
-
-
-# ---------------------------------------------------------------------------
-# GET /api/digest/history
-# ---------------------------------------------------------------------------
-
-class TestDigestHistoryRoute:
-    def test_returns_200(self, client, tmp_path):
-        with patch("app.main._DIGEST_DIR", tmp_path):
-            assert client.get("/api/digest/history").status_code == 200
-
-    def test_returns_list(self, client, tmp_path):
-        with patch("app.main._DIGEST_DIR", tmp_path):
-            assert isinstance(client.get("/api/digest/history").json(), list)
-
-    def test_empty_when_no_files(self, client, tmp_path):
-        with patch("app.main._DIGEST_DIR", tmp_path):
-            assert client.get("/api/digest/history").json() == []
-
-    def test_one_summary_per_digest_file(self, client, tmp_path):
-        (tmp_path / "2024-03-15.json").write_text(
-            json.dumps([_digest_entry()]), encoding="utf-8")
-        (tmp_path / "2024-03-14.json").write_text(
-            json.dumps([_digest_entry()]), encoding="utf-8")
-        with patch("app.main._DIGEST_DIR", tmp_path):
-            data = client.get("/api/digest/history").json()
-        assert len(data) == 2
-
-    def test_summary_fields(self, client, tmp_path):
-        (tmp_path / "2024-03-15.json").write_text(
-            json.dumps([_digest_entry()]), encoding="utf-8")
-        with patch("app.main._DIGEST_DIR", tmp_path):
-            summary = client.get("/api/digest/history").json()[0]
-        assert {"date", "count", "top_label"}.issubset(summary)
-
-    def test_count_matches_entries(self, client, tmp_path):
-        entries = [_digest_entry(str(i)) for i in range(3)]
-        (tmp_path / "2024-03-15.json").write_text(
-            json.dumps(entries), encoding="utf-8")
-        with patch("app.main._DIGEST_DIR", tmp_path):
-            summary = client.get("/api/digest/history").json()[0]
-        assert summary["count"] == 3
-
-    def test_top_label_is_most_common(self, client, tmp_path):
-        entries = [
-            _digest_entry("1", "EXTENDS"),
-            _digest_entry("2", "EXTENDS"),
-            _digest_entry("3", "ANSWERS"),
-        ]
-        (tmp_path / "2024-03-15.json").write_text(
-            json.dumps(entries), encoding="utf-8")
-        with patch("app.main._DIGEST_DIR", tmp_path):
-            summary = client.get("/api/digest/history").json()[0]
-        assert summary["top_label"] == "EXTENDS"
-
-
-# ---------------------------------------------------------------------------
-# GET /api/digest/{date}
-# ---------------------------------------------------------------------------
-
-class TestDigestForDateRoute:
-    def test_returns_200_for_existing_file(self, client, tmp_path):
-        (tmp_path / "2024-03-15.json").write_text(
-            json.dumps([_digest_entry()]), encoding="utf-8")
-        with patch("app.main._DIGEST_DIR", tmp_path):
-            assert client.get("/api/digest/2024-03-15").status_code == 200
-
-    def test_returns_entries_list(self, client, tmp_path):
-        entries = [_digest_entry("1"), _digest_entry("2")]
-        (tmp_path / "2024-03-15.json").write_text(
-            json.dumps(entries), encoding="utf-8")
-        with patch("app.main._DIGEST_DIR", tmp_path):
-            data = client.get("/api/digest/2024-03-15").json()
-        assert len(data) == 2
-
-    def test_entry_has_paper_and_classification(self, client, tmp_path):
-        (tmp_path / "2024-03-15.json").write_text(
-            json.dumps([_digest_entry()]), encoding="utf-8")
-        with patch("app.main._DIGEST_DIR", tmp_path):
-            entry = client.get("/api/digest/2024-03-15").json()[0]
-        assert "paper" in entry
-        assert "classification" in entry
-
-    def test_returns_404_for_missing_date(self, client, tmp_path):
-        with patch("app.main._DIGEST_DIR", tmp_path):
-            with patch("app.redis_client.load_digest", return_value=None):
-                resp = client.get("/api/digest/9999-01-01")
+class TestRemovedRoutes:
+    # The team route surface (test_api.py) restores /api/search and /api/digest/*,
+    # so only the dev-only /pipeline/search alias and a missing dated digest 404.
+    @pytest.mark.parametrize("method,path", [
+        ("post", "/pipeline/search"),
+        ("get", "/api/digest/2024-03-15"),
+    ])
+    def test_route_is_gone(self, client, method, path):
+        if method == "post":
+            resp = client.post(path, json={})
+        else:
+            resp = client.get(path)
         assert resp.status_code == 404
-
-    def test_empty_file_returns_empty_list(self, client, tmp_path):
-        (tmp_path / "2024-03-15.json").write_text("[]", encoding="utf-8")
-        with patch("app.main._DIGEST_DIR", tmp_path):
-            assert client.get("/api/digest/2024-03-15").json() == []
 
 
 # ---------------------------------------------------------------------------
@@ -314,7 +141,7 @@ class TestAddMemoryRoute:
     def test_kind_and_text_forwarded(self, client):
         captured = {}
 
-        def capture(kind, text):
+        def capture(kind, text, settings=None):
             captured.update({"kind": kind, "text": text})
             return _make_profile()
 
@@ -323,3 +150,240 @@ class TestAddMemoryRoute:
                         json={"kind": "assumption", "text": "We assume X."})
         assert captured["kind"] == ProfileItemKind.ASSUMPTION
         assert captured["text"] == "We assume X."
+
+
+# ---------------------------------------------------------------------------
+# GET /ledger
+# ---------------------------------------------------------------------------
+
+class TestLedgerRoute:
+    def test_empty_when_no_papers(self, client):
+        # Autouse conftest fixture repoints the CSV at an empty tmp dir.
+        assert client.get("/ledger").json() == []
+
+    def test_returns_recorded_papers_newest_first(self, client):
+        import app.monitoring as mon
+        mon.record_papers([{"source": "pubmed", "source_id": "1", "title": "Older"}])
+        mon.record_papers([{"source": "arxiv", "source_id": "2", "title": "Newer"}])
+        data = client.get("/ledger").json()
+        assert [r["title"] for r in data] == ["Newer", "Older"]
+        for r in data:
+            assert set(r) == {"title", "first_seen_at", "source"}
+            assert r["first_seen_at"].endswith("Z")
+
+
+# ---------------------------------------------------------------------------
+# POST /intake
+# ---------------------------------------------------------------------------
+
+def _upload(name: str, payload) -> tuple[str, tuple]:
+    blob = json.dumps(payload).encode("utf-8")
+    return ("files", (name, io.BytesIO(blob), "application/json"))
+
+
+class TestIntakeRoute:
+    def test_single_paper_object(self, client):
+        paper = {"source": "pubmed", "source_id": "1", "title": "A paper"}
+        resp = client.post("/intake", files=[_upload("p.json", paper)])
+        assert resp.status_code == 200
+        body = resp.json()
+        # Redis is unavailable in the sandbox, so streamed may be 0 — but the
+        # paper must still be recorded to the ledger.
+        assert body["recorded"] == 1
+        assert body["skipped"] == 0
+        assert set(body) == {"streamed", "recorded", "skipped", "errors", "ids"}
+        # Ledger reflects the recorded paper.
+        assert client.get("/ledger").json()[0]["title"] == "A paper"
+
+    def test_array_of_papers(self, client):
+        papers = [
+            {"source": "pubmed", "source_id": "1", "title": "One"},
+            {"source": "arxiv", "source_id": "2", "title": "Two"},
+        ]
+        resp = client.post("/intake", files=[_upload("batch.json", papers)])
+        body = resp.json()
+        assert body["recorded"] == 2
+
+    def test_missing_title_is_skipped(self, client):
+        papers = [
+            {"source": "pubmed", "source_id": "1", "title": "Has title"},
+            {"source": "pubmed", "source_id": "2"},  # no title
+        ]
+        resp = client.post("/intake", files=[_upload("mix.json", papers)])
+        body = resp.json()
+        assert body["recorded"] == 1
+        assert body["skipped"] == 1
+
+    def test_bad_json_file_records_error(self, client):
+        bad = ("files", ("broken.json", io.BytesIO(b"{not json"),
+                          "application/json"))
+        resp = client.post("/intake", files=[bad])
+        assert resp.status_code == 200
+        body = resp.json()
+        assert "broken.json" in body["errors"]
+        assert body["recorded"] == 0
+
+    def test_streams_when_redis_available(self, client):
+        # Force the stream XADD to succeed regardless of a live Redis.
+        with patch("app.streams.add_new_paper", return_value="1-0"):
+            resp = client.post(
+                "/intake",
+                files=[_upload("p.json",
+                               {"source": "pubmed", "source_id": "9", "title": "Streamed"})],
+            )
+        body = resp.json()
+        assert body["streamed"] == 1
+        assert body["ids"] == ["1-0"]
+
+    def test_redis_outage_does_not_500(self, client):
+        with patch("app.streams.add_new_paper", side_effect=RuntimeError("redis down")):
+            resp = client.post(
+                "/intake",
+                files=[_upload("p.json",
+                               {"source": "pubmed", "source_id": "5", "title": "T"})],
+            )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["recorded"] == 1
+        assert body["streamed"] == 0
+        assert any("redis down" in v for v in body["errors"].values())
+
+    def test_multiple_files(self, client):
+        f1 = _upload("a.json", {"source": "pubmed", "source_id": "1", "title": "A"})
+        f2 = _upload("b.json", [{"source": "arxiv", "source_id": "2", "title": "B"}])
+        resp = client.post("/intake", files=[f1, f2])
+        body = resp.json()
+        assert body["recorded"] == 2
+
+    def test_stream_fields_match_producer_schema(self, client):
+        captured = {}
+
+        def capture(fields, *a, **k):
+            captured.update(fields)
+            return "1-0"
+
+        with patch("app.streams.add_new_paper", side_effect=capture):
+            client.post(
+                "/intake",
+                files=[_upload("p.json", {
+                    "source": "pubmed", "source_id": "1", "title": "T",
+                    "authors": ["X", "Y"], "abstract": "abs",
+                })],
+            )
+        assert set(captured) == {
+            "uid", "source", "source_id", "title", "abstract",
+            "authors", "doi", "url", "journal", "published",
+        }
+        # authors are JSON-encoded; missing fields default to "".
+        assert json.loads(captured["authors"]) == ["X", "Y"]
+        assert captured["doi"] == ""
+        assert captured["uid"] == "pubmed:1"
+
+
+# ---------------------------------------------------------------------------
+# GET /status  (dev-ui monitor)
+# ---------------------------------------------------------------------------
+
+class TestStatusRoute:
+    """/status makes live network probes; patch ThreadPoolExecutor so the probes
+    return a deterministic, all-healthy result without touching the network."""
+
+    def _patch_probes(self, results: dict):
+        """Patch app.main._probe to return canned results keyed by probe fn name."""
+        import app.main as main
+
+        def fake_probe(fn):
+            return results.get(fn.__name__, {"ok": True, "latency_ms": 1.0})
+
+        return patch.object(main, "_probe", side_effect=fake_probe)
+
+    def test_returns_expected_shape(self, client):
+        with self._patch_probes({}):
+            data = client.get("/status").json()
+        assert {"healthy", "connections", "metrics", "redis_sources"}.issubset(data)
+        # The restored dashboard contract probes the data sources plus the
+        # feature-level Redis surfaces and external APIs (see test_smoke.py).
+        assert {
+            "pubmed", "arxiv", "biorxiv", "redis", "redisvl",
+            "streams", "agent_memory", "langcache", "openai",
+            "anthropic", "consumer",
+        }.issubset(data["connections"])
+
+    def test_new_data_sources_probed(self, client):
+        # OpenAlex, ChemRxiv and medRxiv must appear in the connections map so
+        # the dev-UI can surface them. Offline these probes may report ok=False;
+        # we assert presence and shape, not that they are up.
+        with self._patch_probes({}):
+            connections = client.get("/status").json()["connections"]
+        for key in ("openalex", "chemrxiv", "medrxiv"):
+            assert key in connections, f"missing data source: {key}"
+            assert isinstance(connections[key], dict)
+            assert isinstance(connections[key]["ok"], bool)
+
+    def test_metrics_include_new_papers_seen(self, client):
+        with self._patch_probes({}):
+            data = client.get("/status").json()
+        assert "new_papers_seen" in data["metrics"]
+        assert isinstance(data["metrics"]["new_papers_seen"], int)
+
+    def test_metrics_time_based_keys_present(self, client):
+        with self._patch_probes({}):
+            metrics = client.get("/status").json()["metrics"]
+        for key in (
+            "last_new_paper_at", "seconds_since_last_new_paper",
+            "new_papers_last_hour", "status_flip_counts", "status_flip_series",
+            "last_processed_at",
+        ):
+            assert key in metrics
+
+    def test_no_pipeline_metrics(self, client):
+        # papers_processed_* are part of the restored dashboard contract
+        # (test_smoke.py); only the per-request pipeline_* keys stay absent.
+        with self._patch_probes({}):
+            metrics = client.get("/status").json()["metrics"]
+        for key in ("pipeline_last_query", "pipeline_source_counts"):
+            assert key not in metrics
+
+    def test_seconds_since_last_new_paper_tracks_ledger(self, client):
+        import app.monitoring as mon
+        mon.record_papers([{"source": "pubmed", "source_id": "1", "title": "T"}])
+        with self._patch_probes({}):
+            metrics = client.get("/status").json()["metrics"]
+        assert metrics["last_new_paper_at"] is not None
+        assert isinstance(metrics["seconds_since_last_new_paper"], int)
+        assert metrics["last_processed_at"] == metrics["last_new_paper_at"]
+
+    def test_status_flip_series_shape(self, client):
+        import app.monitoring as mon
+        mon.record_status({"redis": {"ok": True}})   # baseline
+        mon.record_status({"redis": {"ok": False}})  # flip off
+        with self._patch_probes({"ping_redis": {"ok": False, "detail": "x"}}):
+            series = client.get("/status").json()["metrics"]["status_flip_series"]
+        assert isinstance(series, list)
+        assert all(set(e) == {"connection", "changed_at", "transition"} for e in series)
+
+    def test_healthy_true_when_all_ok(self, client):
+        with self._patch_probes({}):
+            data = client.get("/status").json()
+        assert data["healthy"] is True
+
+    def test_healthy_false_when_one_down(self, client):
+        with self._patch_probes({"ping_redis": {"ok": False, "detail": "timeout"}}):
+            data = client.get("/status").json()
+        assert data["healthy"] is False
+        assert data["connections"]["redis"]["ok"] is False
+
+    def test_redis_sources_reflect_live_surfaces(self, client):
+        with self._patch_probes({
+            "ping_redis": {"ok": True, "latency_ms": 1.0},
+            "probe_redisvl": {"ok": False, "detail": "no query engine"},
+        }):
+            data = client.get("/status").json()
+        # Redis up, RedisVL down -> only the digest store is a live surface.
+        assert data["redis_sources"] == ["Digest store"]
+
+    def test_metrics_memory_records_from_profile(self, client):
+        with self._patch_probes({}):
+            with patch("app.memory.load_profile", return_value=_make_profile()):
+                data = client.get("/status").json()
+        assert data["metrics"]["memory_records"] == 1  # _make_profile has 1 item

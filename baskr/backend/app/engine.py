@@ -1,11 +1,14 @@
 """Classification engine — implemented once, shared by both surfaces (SPEC §6).
 
     classify_paper(paper, profile):
-      1. embed(paper.abstract)                          # embeddings.py / OpenAI
-      2. retrieve top-k profile items from memory       # memory.py
-      3. build_prompt(profile_items, paper)             # prompts.py (§7)
-      4. Claude -> {label, reason, matched_item_id, confidence}   # llm.py
-      5. return classification
+      1. retrieve top-k profile items from memory       # memory.py
+      2. build_prompt(profile_items, paper)             # prompts.py (§7)
+      3. Claude -> {label, reason, matched_item_id, confidence}   # llm.py
+      4. return classification
+
+Note: embedding step removed — classify_paper runs entirely through Anthropic.
+Local embeddings (app/embeddings.py) are only needed if/when Redis vector
+search is added.
 
 Paper fetching is delegated to ingest.py (DataPipeline adapter).
 """
@@ -19,17 +22,9 @@ from .models import Classification, Label, PaperOut, Profile, SearchHit
 def classify_paper(paper: PaperOut, profile: Profile,
                    settings: Settings = SETTINGS) -> Classification:
     """Run the 5-step engine for one paper against the lab profile (SPEC §6)."""
-    from .embeddings import embed_text
     from .llm import classify
     from .memory import retrieve_relevant
     from .prompts import build_prompt
-
-    # Step 1: embed the paper abstract (skip if empty)
-    if paper.abstract:
-        try:
-            embed_text(paper.abstract, settings=settings)
-        except Exception:
-            pass  # embedding is optional for prompt-based classification
 
     # Step 2: retrieve relevant profile items
     items = retrieve_relevant(paper.abstract or paper.title, settings=settings)

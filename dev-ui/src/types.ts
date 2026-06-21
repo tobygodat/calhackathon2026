@@ -18,7 +18,9 @@ export interface PipelineSourceMetrics {
 export interface SystemMetrics {
   filesProcessedLastHour: number;
   filesProcessedTotal: number;
-  connectionsHealthyPercent: number;
+  connectionsHealthy: number;
+  connectionsTotal: number;
+  newPapersSeen: number;
   alertsFiredLastHour: number;
   corpusIndexDocs: number;
   streamQueueLength: number;
@@ -44,9 +46,7 @@ export interface SystemStatus {
   source: "live";
 }
 
-// WARNING: NATURE SOURCE IS DISABLED — DO NOT RE-ENABLE WITHOUT EXPLICIT REQUEST
-// "nature" has been removed from PipelineSource. Do not add it back unless specifically asked.
-export type PipelineSource = "pubmed" | "arxiv" | "biorxiv"; // | "nature"
+export type PipelineSource = "pubmed" | "arxiv" | "biorxiv";
 
 export interface Paper {
   source: PipelineSource;
@@ -74,6 +74,60 @@ export interface PipelineSearchResult {
   counts: Record<string, number>;
 }
 
+// --- SPEC §5 data models (mirroring models.py) --------------------------------
+
+export type ProfileItemKind =
+  | "open_question"
+  | "assumption"
+  | "finding"
+  | "planned_experiment";
+
+export interface ProfileItem {
+  id: string;
+  kind: ProfileItemKind;
+  text: string;
+}
+
+export interface Profile {
+  lab_id: string;
+  niche: string;
+  display_name: string;
+  items: ProfileItem[];
+}
+
+export type Label =
+  | "ANSWERS"
+  | "CONTRADICTS"
+  | "EXTENDS"
+  | "NOT_RELEVANT"
+  | "SCOOP";
+
+export interface Classification {
+  label: Label;
+  reason: string;
+  matched_item_id: string | null;
+  confidence: number;
+}
+
+export interface SearchHit {
+  paper: Paper;
+  classification: Classification;
+}
+
+export interface DigestEntry {
+  date: string;
+  paper: Paper;
+  classification: Classification;
+}
+
+export interface DigestSummary {
+  date: string;
+  count: number;
+  top_label: Label;
+}
+
+// --- StatusResponse (existing, unchanged below) --------------------------------
+
 export interface StatusResponse {
   healthy: boolean;
   connections: Record<
@@ -83,6 +137,7 @@ export interface StatusResponse {
   metrics: {
     papers_processed_last_hour?: number;
     papers_processed_total?: number;
+    new_papers_seen?: number;
     alerts_fired_last_hour?: number;
     corpus_index_docs?: number;
     stream_length?: number;

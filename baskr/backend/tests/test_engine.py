@@ -51,20 +51,24 @@ class TestClassifyPaper:
         assert isinstance(result, Classification)
         assert result.label == Label.ANSWERS
 
-    def test_uses_abstract_for_embedding(self, sample_paper, sample_profile, settings):
+    def test_uses_abstract_for_retrieval(self, sample_paper, sample_profile, settings):
+        """The engine no longer embeds locally; it passes the paper's abstract
+        to retrieve_relevant so the most relevant profile items are selected."""
         captured = []
-        with patch("app.embeddings.embed_text",
-                   side_effect=lambda t, settings=None: captured.append(t) or [0.0] * 1536):
-            with patch("app.memory.retrieve_relevant",
-                       return_value=sample_profile.items):
-                with patch("app.prompts.build_prompt",
-                           return_value=("s", "u")):
-                    with patch("app.llm.classify",
-                               return_value=_mock_cl()):
-                        classify_paper(sample_paper, sample_profile,
-                                       settings=settings)
-        # embed_text should have been called with the abstract
-        assert any(sample_paper.abstract in t for t in captured)
+
+        def cap_retrieve(query, k=None, settings=None):
+            captured.append(query)
+            return sample_profile.items
+
+        with patch("app.memory.retrieve_relevant", side_effect=cap_retrieve):
+            with patch("app.prompts.build_prompt",
+                       return_value=("s", "u")):
+                with patch("app.llm.classify",
+                           return_value=_mock_cl()):
+                    classify_paper(sample_paper, sample_profile,
+                                   settings=settings)
+        # retrieve_relevant should have been called with the abstract
+        assert any(sample_paper.abstract in q for q in captured)
 
     def test_no_abstract_skips_embed_uses_title_for_retrieve(
         self, sample_paper_no_abstract, sample_profile, settings

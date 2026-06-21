@@ -50,9 +50,12 @@ class TestGetClient:
     def test_uses_redis_url_from_settings(self, settings, mock_redis_client):
         with patch("redis.from_url", return_value=mock_redis_client) as mock_from_url:
             rc.get_client(settings)
-        mock_from_url.assert_called_once_with(
-            settings.redis_url, decode_responses=True
-        )
+        # URL + decode_responses, plus socket timeouts so an unreachable Redis
+        # fails fast instead of blocking the request thread.
+        args, kwargs = mock_from_url.call_args
+        assert args == (settings.redis_url,)
+        assert kwargs["decode_responses"] is True
+        assert kwargs["socket_timeout"] and kwargs["socket_connect_timeout"]
 
 
 class TestStoreAndLoadDigest:
