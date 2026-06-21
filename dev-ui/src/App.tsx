@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { fetchStatus } from "./api";
+import { ActiveSearchPanel } from "./components/ActiveSearchPanel";
+import { CapabilityPanel } from "./components/CapabilityPanel";
 import { ConnectionsPanel } from "./components/ConnectionsPanel";
+import { DigestHistoryPanel } from "./components/DigestHistoryPanel";
+import { LabProfilePanel } from "./components/LabProfilePanel";
 import { MetricCards } from "./components/MetricCards";
 import { PipelineMetricsPanel } from "./components/PipelineMetricsPanel";
 import { PipelinePanel } from "./components/PipelinePanel";
@@ -98,8 +102,17 @@ export default function App() {
       <main className="space-y-8">
         {status ? (
           <>
+            {/* System overview */}
             <MetricCards metrics={status.metrics} />
+            <CapabilityPanel status={status} />
             <ConnectionsPanel connections={status.connections} />
+
+            {/* Lab data panels */}
+            <LabProfilePanel />
+            <ActiveSearchPanel />
+            <DigestHistoryPanel />
+
+            {/* Infrastructure / pipeline panels */}
             <RedisSourcesPanel sources={status.redisSources} />
             <PipelineMetricsPanel
               metrics={status.metrics}

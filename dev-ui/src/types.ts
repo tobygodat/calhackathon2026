@@ -74,6 +74,60 @@ export interface PipelineSearchResult {
   counts: Record<string, number>;
 }
 
+// --- SPEC §5 data models (mirroring models.py) --------------------------------
+
+export type ProfileItemKind =
+  | "open_question"
+  | "assumption"
+  | "finding"
+  | "planned_experiment";
+
+export interface ProfileItem {
+  id: string;
+  kind: ProfileItemKind;
+  text: string;
+}
+
+export interface Profile {
+  lab_id: string;
+  niche: string;
+  display_name: string;
+  items: ProfileItem[];
+}
+
+export type Label =
+  | "ANSWERS"
+  | "CONTRADICTS"
+  | "EXTENDS"
+  | "NOT_RELEVANT"
+  | "SCOOP";
+
+export interface Classification {
+  label: Label;
+  reason: string;
+  matched_item_id: string | null;
+  confidence: number;
+}
+
+export interface SearchHit {
+  paper: Paper;
+  classification: Classification;
+}
+
+export interface DigestEntry {
+  date: string;
+  paper: Paper;
+  classification: Classification;
+}
+
+export interface DigestSummary {
+  date: string;
+  count: number;
+  top_label: Label;
+}
+
+// --- StatusResponse (existing, unchanged below) --------------------------------
+
 export interface StatusResponse {
   healthy: boolean;
   connections: Record<
