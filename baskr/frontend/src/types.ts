@@ -39,6 +39,7 @@ export interface Paper {
   published: string | null;
   categories: string[];
   uid: string | null;
+  thumbnail_url?: string | null;
 }
 
 export interface Classification {

@@ -1,14 +1,18 @@
 // Welcome / home screen (handoff "Main Welcome Screen").
-// Greets the user, then surfaces newly-relevant papers grouped by the
-// relationship they have to the lab's work, one accent colour per column.
+// Shows papers that have passed the full pipeline: vector search → LLM screen →
+// categorized. Falls back to the latest frozen digest when live papers exist.
 import { useEffect, useState } from "react";
-import { getDigest, getDigestHistory } from "../../api";
-import type { DigestEntry } from "../../types";
+import { getDigest, getDigestHistory, getRelevantPapers } from "../../api";
+import type { DigestEntry, SearchHit } from "../../types";
 import TopNav from "./TopNav";
 import PaperCardGrid from "./PaperCardGrid";
 
 const USER_NAME = "Toby"; // TODO: from auth/user profile
 const MAX_CARDS = 4;
+
+function hitToEntry(hit: SearchHit): DigestEntry {
+  return { ...hit, date: "" };
+}
 
 export default function WelcomeDashboard() {
   const [cards, setCards] = useState<DigestEntry[]>([]);
@@ -18,13 +22,22 @@ export default function WelcomeDashboard() {
     let cancelled = false;
     (async () => {
       try {
+        // Primary: live papers from the consumer pipeline (vector-searched,
+        // screened, and categorized). Only these are shown so the frontend never
+        // surfaces unprocessed papers.
+        const live = await getRelevantPapers(MAX_CARDS);
+        if (live.length > 0) {
+          if (!cancelled) setCards(live.map(hitToEntry));
+          return;
+        }
+
+        // Fallback: latest frozen digest (pre-classified offline batch).
         const history = await getDigestHistory();
         if (history.length === 0) {
           if (!cancelled) setCards([]);
           return;
         }
-        // history is newest-first; take the latest digest's top hits.
-        const entries = await getDigest(history[0].date);
+        const entries = await getDigest(history[history.length - 1].date);
         const top = [...entries]
           .sort((a, b) => b.classification.confidence - a.classification.confidence)
           .slice(0, MAX_CARDS);

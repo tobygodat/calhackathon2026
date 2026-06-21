@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchStatus, offlineStatus } from "./api";
 import { AlertFeedPanel } from "./components/AlertFeedPanel";
 import { CapabilityPanel } from "./components/CapabilityPanel";
@@ -15,18 +15,35 @@ import { StatusDot } from "./components/StatusBadge";
 import type { SystemStatus } from "./types";
 
 const POLL_MS = 10_000;
+const FAILURE_THRESHOLD = 3;
 
 export default function App() {
   const [status, setStatus] = useState<SystemStatus | null>(null);
+  const [stale, setStale] = useState(false);
   const [loading, setLoading] = useState(false);
   const [lastAttempt, setLastAttempt] = useState<Date | null>(null);
   const [ledgerRefreshKey, setLedgerRefreshKey] = useState(0);
+  const failCount = useRef(0);
+  const hasConnected = useRef(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     const live = await fetchStatus();
-    setStatus(live);
     setLastAttempt(new Date());
+    if (live !== null) {
+      failCount.current = 0;
+      hasConnected.current = true;
+      setStale(false);
+      setStatus(live);
+    } else {
+      failCount.current += 1;
+      if (!hasConnected.current || failCount.current >= FAILURE_THRESHOLD) {
+        setStale(false);
+        setStatus(null);
+      } else {
+        setStale(true);
+      }
+    }
     setLoading(false);
   }, []);
 
@@ -64,12 +81,14 @@ export default function App() {
           <div className="flex items-center gap-3 text-xs text-slate-500">
             <span
               className={
-                !offline
-                  ? "rounded bg-emerald-500/15 px-2 py-0.5 text-emerald-400"
-                  : "rounded bg-slate-500/15 px-2 py-0.5 text-slate-500"
+                stale
+                  ? "rounded bg-amber-500/15 px-2 py-0.5 text-amber-400"
+                  : !offline
+                    ? "rounded bg-emerald-500/15 px-2 py-0.5 text-emerald-400"
+                    : "rounded bg-slate-500/15 px-2 py-0.5 text-slate-500"
               }
             >
-              {!offline ? "Live API" : "Offline"}
+              {stale ? "Stale · retrying" : !offline ? "Live API" : "Offline"}
             </span>
             {lastAttempt && (
               <span>Last attempt {lastAttempt.toLocaleTimeString()}</span>

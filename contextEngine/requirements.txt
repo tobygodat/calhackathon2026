@@ -1,0 +1,16 @@
+# Context Initialization Engine
+# Core extraction + embedding stack. Everything degrades gracefully when a key
+# or optional dependency is absent, so a bare `pip install -r requirements.txt`
+# yields a runnable engine even with no API keys.
+
+pypdf>=4.0           # PDF text extraction
+numpy>=1.24          # local vector store + keyless embeddings
+fastapi>=0.110       # upload / search HTTP surface
+uvicorn>=0.27        # ASGI server for api.py
+python-multipart     # FastAPI file uploads
+
+# --- optional, real-quality paths (engine runs without them) ---
+anthropic>=0.39      # Claude extraction of findings/questions/assumptions
+openai>=1.30         # text-embedding-3-small vectors
+redis>=5.0           # optional Redis-backed vector store (else local numpy)
+redis-agent-memory   # optional Iris RAM belief store (CONTEXT_STORE=iris)

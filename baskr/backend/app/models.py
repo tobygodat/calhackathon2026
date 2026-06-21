@@ -59,6 +59,7 @@ class PaperOut(BaseModel):
     published: str | None = None     # ISO YYYY-MM-DD
     categories: list[str] = Field(default_factory=list)
     uid: str | None = None           # stable cross-source id from Paper.uid
+    thumbnail_url: str | None = None  # /api/thumbnail URL, set after PDF render
 
 
 # --- classification (SPEC §5.3) ---------------------------------------------

@@ -283,6 +283,68 @@ def _parse_paper(fields: dict[bytes | str, bytes | str]) -> PaperOut | None:
         return None
 
 
+def _maybe_write_memory(paper: PaperOut, classification: Any,
+                        settings: Settings) -> None:
+    """Write a durable finding back to the lab profile when the LLM produced one."""
+    new_mem = getattr(classification, "new_memory", None)
+    if not new_mem:
+        return
+    try:
+        from . import memory as _mem  # noqa: PLC0415
+        _mem.append_item("finding", new_mem, settings)
+    except Exception as exc:  # noqa: BLE001
+        log.debug("Consumer: memory write failed: %s", exc)
+
+
+# Redis key for the sorted set of relevant papers (score = Unix timestamp).
+_RELEVANT_SET = "baskr:relevant_papers"
+_RELEVANT_MAXLEN = 500
+
+
+def _store_relevant_paper(paper: PaperOut, classification: Any,
+                          settings: Settings) -> None:
+    """Persist a relevant paper+classification to the Redis sorted set."""
+    try:
+        from .redis_client import get_client  # noqa: PLC0415
+        client = get_client(settings)
+        payload = json.dumps({
+            "paper": paper.model_dump(),
+            "classification": classification.model_dump(),
+        })
+        score = time.time()
+        client.zadd(_RELEVANT_SET, {payload: score})
+        # Trim oldest beyond the cap.
+        count = client.zcard(_RELEVANT_SET)
+        if count > _RELEVANT_MAXLEN:
+            client.zremrangebyrank(_RELEVANT_SET, 0, count - _RELEVANT_MAXLEN - 1)
+    except Exception as exc:  # noqa: BLE001
+        log.debug("Consumer: store_relevant_paper failed: %s", exc)
+
+
+def get_recent_relevant_papers(n: int = 20,
+                                settings: Settings = SETTINGS) -> list[dict]:
+    """Return up to n most-recent relevant papers from Redis (newest first).
+
+    Each element has the same shape as a SearchHit: ``{paper: ..., classification: ...}``.
+    Returns [] when Redis is unreachable.
+    """
+    try:
+        from .redis_client import get_client  # noqa: PLC0415
+        client = get_client(settings)
+        # zrange with rev=True, offset=0 gives highest scores (newest) first.
+        raw_list = client.zrange(_RELEVANT_SET, 0, n - 1, rev=True)
+        results = []
+        for raw in raw_list:
+            try:
+                results.append(json.loads(raw))
+            except Exception:  # noqa: BLE001
+                continue
+        return results
+    except Exception as exc:  # noqa: BLE001
+        log.debug("Consumer: get_recent_relevant_papers failed: %s", exc)
+        return []
+
+
 def _classify_and_alert(paper: PaperOut, settings: Settings) -> None:
     """Classify one paper; push an alert if it is relevant."""
     from . import memory  # noqa: PLC0415  (avoid circular at import)
@@ -295,10 +357,18 @@ def _classify_and_alert(paper: PaperOut, settings: Settings) -> None:
             log.debug("Consumer: %s → NOT_RELEVANT (skip)", paper.title[:40])
             return
 
+        # Pre-warm the thumbnail cache so the frontend gets a fast response.
+        from .thumbnails import make_thumbnail_url, prewarm  # noqa: PLC0415
+        prewarm(paper.source, paper.url)
+        paper = paper.model_copy(
+            update={"thumbnail_url": make_thumbnail_url(paper.source, paper.url)}
+        )
+
         alert = {
             "paper_title": paper.title,
             "paper_source": paper.source,
             "paper_url": paper.url,
+            "paper_thumbnail_url": paper.thumbnail_url,
             "label": classification.label.value,
             "reason": classification.reason,
             "confidence": classification.confidence,
@@ -313,6 +383,9 @@ def _classify_and_alert(paper: PaperOut, settings: Settings) -> None:
             classification.confidence,
             classification.reason[:60],
         )
+
+        # Store full paper+classification so the frontend can display it.
+        _store_relevant_paper(paper, classification, settings)
         _maybe_write_memory(paper, classification, settings)
     except Exception as exc:  # noqa: BLE001
         log.warning("Consumer: classify failed for %r: %s", paper.title[:40], exc)

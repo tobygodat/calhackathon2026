@@ -342,19 +342,7 @@ def _ping_chemrxiv(timeout: float = DEFAULT_PING_TIMEOUT_S) -> None:
     )
     resp.raise_for_status()
     if "just a moment" in resp.text[:512].lower():
-        # Cloudflare is actively challenging. Fall back to the optional browser-based
-        # bypass IF it's installed. Deleting app/chemrxiv_cloudflare.py (see its PURGE
-        # INSTRUCTIONS) makes this import fail and restores plain-HTTP-only behaviour.
-        try:
-            from . import chemrxiv_cloudflare  # noqa: PLC0415
-        except Exception:  # noqa: BLE001  (module purged or playwright missing)
-            raise RuntimeError("blocked by Cloudflare challenge")
-        # The browser bypass (launch + challenge + call) needs a larger budget than
-        # the plain-HTTP probe; the heartbeat runs on a background thread, not the
-        # /status request path, so the longer wait here is harmless.
-        if not (chemrxiv_cloudflare.available()
-                and chemrxiv_cloudflare.ping(chemrxiv_cloudflare.DEFAULT_TIMEOUT_S)):
-            raise RuntimeError("blocked by Cloudflare challenge (browser bypass failed)")
+        raise RuntimeError("blocked by Cloudflare challenge")
 
 
 # Map each source to its heartbeat ping (each accepts a timeout). A source absent

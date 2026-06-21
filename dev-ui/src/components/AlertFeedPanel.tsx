@@ -20,30 +20,50 @@ export function AlertFeedPanel() {
   const esRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
-    const es = new EventSource("/api/alerts/stream");
-    esRef.current = es;
+    let es: EventSource | null = null;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let retryDelay = 3_000;
+    let cancelled = false;
 
-    es.onopen = () => {
-      setConnected(true);
-      setError(null);
-    };
+    function connect() {
+      if (cancelled) return;
+      es = new EventSource("/api/alerts/stream");
+      esRef.current = es;
 
-    es.onmessage = (ev) => {
-      try {
-        const alert = JSON.parse(ev.data) as Alert;
-        setAlerts((prev) => [alert, ...prev].slice(0, 50));
-      } catch {
-        // heartbeat comment or malformed — ignore
-      }
-    };
+      es.onopen = () => {
+        retryDelay = 3_000;
+        setConnected(true);
+        setError(null);
+      };
 
-    es.onerror = () => {
-      setConnected(false);
-      setError("SSE connection lost — retrying…");
-    };
+      es.onmessage = (ev) => {
+        try {
+          const alert = JSON.parse(ev.data) as Alert;
+          setAlerts((prev) => [alert, ...prev].slice(0, 50));
+        } catch {
+          // heartbeat or malformed — ignore
+        }
+      };
+
+      es.onerror = () => {
+        es?.close();
+        setConnected(false);
+        if (!cancelled) {
+          setError(`SSE lost — reconnecting in ${retryDelay / 1_000}s…`);
+          retryTimer = setTimeout(() => {
+            retryDelay = Math.min(retryDelay * 2, 30_000);
+            connect();
+          }, retryDelay);
+        }
+      };
+    }
+
+    connect();
 
     return () => {
-      es.close();
+      cancelled = true;
+      es?.close();
+      if (retryTimer !== null) clearTimeout(retryTimer);
       setConnected(false);
     };
   }, []);

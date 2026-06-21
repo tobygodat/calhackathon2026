@@ -37,6 +37,7 @@ from .models import (
     SearchRequest,
 )
 from .redis_client import get_client, load_digest
+from .thumbnails import make_thumbnail_url
 
 # Frozen-digest filesystem directory (app/ -> backend/ -> baskr/ -> data/digest_frozen).
 _FROZEN_DIR = Path(__file__).resolve().parents[2] / "data" / "digest_frozen"
@@ -167,9 +168,20 @@ def add_memory(body: MemoryWriteRequest) -> Profile:
     return memory.append_item(body.kind, body.text, SETTINGS)
 
 
+def _with_thumbnail(paper: PaperOut) -> PaperOut:
+    """Return paper with thumbnail_url populated if not already set."""
+    if paper.thumbnail_url is None:
+        url = make_thumbnail_url(paper.source, paper.url)
+        if url:
+            return paper.model_copy(update={"thumbnail_url": url})
+    return paper
+
+
 @app.post("/api/search", response_model=list[SearchHit])
 def search(body: SearchRequest) -> list[SearchHit]:
-    return engine.active_search(body.question, SETTINGS)
+    hits = engine.active_search(body.question, SETTINGS)
+    return [SearchHit(paper=_with_thumbnail(h.paper), classification=h.classification)
+            for h in hits]
 
 
 # ---------------------------------------------------------------------------
@@ -235,13 +247,27 @@ def digest_history() -> list[DigestSummary]:
     return [summaries[d] for d in sorted(summaries)]
 
 
+def _enrich_digest_entries(entries: list[dict]) -> list[DigestEntry]:
+    """Deserialize DigestEntry list and populate thumbnail_url on each paper."""
+    result = []
+    for e in entries:
+        entry = DigestEntry(**e)
+        entry = DigestEntry(
+            date=entry.date,
+            paper=_with_thumbnail(entry.paper),
+            classification=entry.classification,
+        )
+        result.append(entry)
+    return result
+
+
 @app.get("/api/digest/{date}", response_model=list[DigestEntry])
 def digest_for_date(date: str) -> list[DigestEntry]:
     """Return all entries for a single date, filesystem first then Redis."""
     fs_path = _FROZEN_DIR / f"{date}.json"
     if fs_path.exists():
         entries = json.loads(fs_path.read_text())
-        return [DigestEntry(**e) for e in entries]
+        return _enrich_digest_entries(entries)
 
     # Redis-backed digest. A Redis outage degrades to "no digest" (404), matching
     # digest_history's offline-safe handling rather than surfacing a 500.
@@ -251,9 +277,37 @@ def digest_for_date(date: str) -> list[DigestEntry]:
         payload = None
     if payload:
         entries = json.loads(payload)
-        return [DigestEntry(**e) for e in entries]
+        return _enrich_digest_entries(entries)
 
     raise HTTPException(status_code=404, detail=f"No digest for {date}")
+
+
+# ---------------------------------------------------------------------------
+# Relevant papers — papers that passed vector search + LLM screening
+# ---------------------------------------------------------------------------
+
+@app.get("/api/papers/relevant", response_model=list[SearchHit])
+def relevant_papers(limit: int = 20) -> list[SearchHit]:
+    """Return the most recently classified relevant papers (newest first).
+
+    These are papers that have been through the full pipeline: intake stream →
+    vector-relevance gate → LLM scan → classified as non-NOT_RELEVANT. The
+    frontend displays only these, so it never shows unscreened papers.
+    """
+    from . import consumer  # noqa: PLC0415
+    from .models import Classification, Label  # noqa: PLC0415
+
+    raw = consumer.get_recent_relevant_papers(n=limit, settings=SETTINGS)
+    hits: list[SearchHit] = []
+    for record in raw:
+        try:
+            paper = PaperOut(**record["paper"])
+            cl = Classification(**record["classification"])
+            paper = _with_thumbnail(paper)
+            hits.append(SearchHit(paper=paper, classification=cl))
+        except Exception:  # noqa: BLE001
+            continue
+    return hits
 
 
 # ---------------------------------------------------------------------------
@@ -290,12 +344,6 @@ def thumbnail(source: str, url: str | None = None) -> Response:
         media_type="image/png",
         headers={"Cache-Control": "public, max-age=604800"},
     )
-
-
-@app.post("/api/profile/memory", response_model=Profile)
-def add_memory(body: MemoryWriteRequest) -> Profile:
-    """Append a finding to the lab profile (stretch: memory grows visibly)."""
-    return memory.append_item(body.kind, body.text, SETTINGS)
 
 
 @app.post("/api/pipeline/search")

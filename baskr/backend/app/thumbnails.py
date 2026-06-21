@@ -94,6 +94,25 @@ def _render_first_page(pdf_bytes: bytes) -> bytes:
         return pix.tobytes("png")
 
 
+def make_thumbnail_url(source: str, url: str | None) -> str | None:
+    """Return the /api/thumbnail query URL for this paper, or None if no free PDF exists."""
+    if not pdf_url_for(source, url):
+        return None
+    from urllib.parse import urlencode
+    return f"/api/thumbnail?{urlencode({'source': source, 'url': url or ''})}"
+
+
+def prewarm(source: str, url: str | None) -> None:
+    """Kick off thumbnail generation in a daemon thread (best-effort, non-blocking)."""
+    import threading
+    threading.Thread(
+        target=render_thumbnail,
+        args=(source, url),
+        daemon=True,
+        name="baskr-thumbnail-prewarm",
+    ).start()
+
+
 def render_thumbnail(source: str, url: str | None) -> bytes | None:
     """Return PNG bytes of the paper's first page, or ``None`` if unavailable.
 
