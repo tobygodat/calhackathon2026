@@ -1,274 +1,232 @@
 import { useState } from "react";
-import { fetchPipeline } from "../api";
-import type { Paper, PipelineSearchResult, PipelineSource } from "../types";
+import { runPipelineSearch, type PipelineSearchResult } from "../api";
+import type { SourceContact, SystemMetrics } from "../types";
+import { StatusDot } from "./StatusBadge";
 
-const ALL_SOURCES: { id: PipelineSource; label: string }[] = [
-  { id: "pubmed", label: "PubMed / NCBI" },
-  { id: "arxiv", label: "arXiv" },
-  { id: "biorxiv", label: "bioRxiv / medRxiv" },
-];
-
-const DAY_OPTIONS = [1, 3, 7, 14, 30];
-
-const SOURCE_COLORS: Record<PipelineSource, string> = {
-  pubmed: "bg-blue-500/20 text-blue-400 border-blue-500/40",
-  arxiv: "bg-purple-500/20 text-purple-400 border-purple-500/40",
-  biorxiv: "bg-amber-500/20 text-amber-400 border-amber-500/40",
+const SOURCE_LABELS: Record<string, string> = {
+  pubmed: "PubMed / NCBI",
+  arxiv: "arXiv",
+  biorxiv: "bioRxiv",
+  medrxiv: "medRxiv",
+  openalex: "OpenAlex",
+  chemrxiv: "ChemRxiv",
 };
 
-function SourceBadge({ source }: { source: PipelineSource }) {
-  const label = ALL_SOURCES.find((s) => s.id === source)?.label ?? source;
+function fmtAge(seconds: number | null): string {
+  if (seconds == null) return "no contact yet";
+  if (seconds < 60) return `${seconds}s ago`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  return `${Math.floor(seconds / 3600)}h ago`;
+}
+
+function fmtMinutes(seconds?: number): string {
+  if (seconds == null) return "—";
+  return `${Math.round(seconds / 60)} min`;
+}
+
+/** One of the two in-flight batches, with its current depth. */
+function BatchCard({
+  title,
+  count,
+  waitingFor,
+  accent,
+}: {
+  title: string;
+  count: number;
+  waitingFor: string;
+  accent: string;
+}) {
   return (
-    <span
-      className={`inline-flex items-center rounded border px-1.5 py-0.5 text-xs ${SOURCE_COLORS[source]}`}
-    >
-      {label}
-    </span>
+    <div className={`rounded-lg border p-4 ${accent}`}>
+      <p className="text-xs uppercase tracking-wider text-slate-500">{title}</p>
+      <p className="mt-1 text-3xl font-semibold tabular-nums text-slate-100">
+        {count.toLocaleString()}
+      </p>
+      <p className="mt-1 text-xs text-slate-500">{waitingFor}</p>
+    </div>
   );
 }
 
-function PaperCard({ paper }: { paper: Paper }) {
-  const [expanded, setExpanded] = useState(false);
-  const abstract = paper.abstract?.trim();
-  const truncated = abstract && abstract.length > 280;
+const STATE_META: Record<
+  NonNullable<SourceContact["state"]>,
+  { dot: "healthy" | "ready" | "down"; badge: string; label: string }
+> = {
+  stable: {
+    dot: "healthy",
+    badge: "border-emerald-500/40 bg-emerald-500/15 text-emerald-300",
+    label: "stable",
+  },
+  ready: {
+    dot: "ready",
+    badge: "border-indigo-500/40 bg-indigo-500/15 text-indigo-300",
+    label: "ready",
+  },
+  stale: {
+    dot: "down",
+    badge: "border-amber-500/40 bg-amber-500/15 text-amber-300",
+    label: "stale",
+  },
+  down: {
+    dot: "down",
+    badge: "border-red-500/40 bg-red-500/15 text-red-300",
+    label: "down",
+  },
+};
 
+/** A source's stable-connection row: dot + label + last-contact freshness. */
+function SourceContactRow({
+  source,
+  contact,
+}: {
+  source: string;
+  contact: SourceContact;
+}) {
+  const label = SOURCE_LABELS[source] ?? source;
+  // Fall back to the boolean when the backend didn't send an explicit state.
+  const state = contact.state ?? (contact.stable ? "stable" : "down");
+  const meta = STATE_META[state];
   return (
-    <div className="rounded-lg border border-slate-700/60 bg-slate-900/50 p-4">
-      <div className="mb-1.5 flex flex-wrap items-start justify-between gap-2">
-        <h4 className="flex-1 text-sm font-medium leading-snug text-slate-100">
-          {paper.url ? (
-            <a
-              href={paper.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-cyan-400 hover:underline"
-            >
-              {paper.title}
-            </a>
-          ) : (
-            paper.title
-          )}
-        </h4>
-        <SourceBadge source={paper.source} />
-      </div>
-
-      <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500">
-        {paper.published && <span>{paper.published}</span>}
-        {paper.journal && <span className="truncate">{paper.journal}</span>}
-        {paper.authors.length > 0 && (
-          <span className="truncate">
-            {paper.authors.slice(0, 3).join(", ")}
-            {paper.authors.length > 3 ? ` +${paper.authors.length - 3}` : ""}
+    <div className="flex items-center justify-between gap-3 border-b border-slate-800 px-3 py-2 last:border-b-0">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <StatusDot status={meta.dot} />
+        <span className="truncate text-sm text-slate-200">{label}</span>
+        {contact.optional && (
+          <span className="shrink-0 rounded border border-slate-600 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-500">
+            best-effort
           </span>
         )}
-        {paper.doi && (
-          <a
-            href={`https://doi.org/${paper.doi}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:text-cyan-400 hover:underline"
-          >
-            DOI
-          </a>
-        )}
       </div>
-
-      {abstract && (
-        <p className="text-xs leading-relaxed text-slate-400">
-          {expanded || !truncated ? abstract : `${abstract.slice(0, 280)}…`}
-          {truncated && (
-            <button
-              type="button"
-              onClick={() => setExpanded((e) => !e)}
-              className="ml-1 text-cyan-500 hover:text-cyan-300"
-            >
-              {expanded ? "less" : "more"}
-            </button>
-          )}
-        </p>
-      )}
-
-      {paper.categories.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1">
-          {paper.categories.slice(0, 5).map((cat) => (
-            <span
-              key={cat}
-              className="rounded bg-slate-800 px-1.5 py-0.5 text-xs text-slate-500"
-            >
-              {cat}
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function CountsRow({ counts }: { counts: Record<string, number> }) {
-  const entries = Object.entries(counts);
-  if (entries.length === 0) return null;
-  return (
-    <div className="flex flex-wrap gap-3 text-xs text-slate-500">
-      {entries.map(([src, n]) => (
-        <span key={src}>
-          <span className="font-medium text-slate-300">{n}</span> {src}
+      <div className="flex shrink-0 items-center gap-3 text-xs">
+        <span className="tabular-nums text-slate-500">
+          {state === "ready" && contact.age_seconds == null
+            ? "standby"
+            : fmtAge(contact.age_seconds)}
         </span>
-      ))}
+        <span
+          className={`rounded border px-1.5 py-0.5 uppercase tracking-wide ${meta.badge}`}
+        >
+          {meta.label}
+        </span>
+      </div>
     </div>
   );
 }
 
-interface PipelinePanelProps {
-  /** Called after each completed search with the query string and its result. */
-  onResult?: (query: string, result: PipelineSearchResult) => void;
-}
+export function PipelinePanel({ metrics }: { metrics: SystemMetrics | null }) {
+  const m = metrics;
+  const stage = m?.stageCounts ?? {};
+  const contacts = m?.sourceContacts ?? {};
+  const sources = Object.keys(contacts);
 
-export function PipelinePanel({ onResult }: PipelinePanelProps) {
-  const [query, setQuery] = useState("");
-  const [days, setDays] = useState(7);
-  const [selectedSources, setSelectedSources] = useState<Set<PipelineSource>>(
-    new Set(ALL_SOURCES.map((s) => s.id)),
-  );
-  const [loading, setLoading] = useState(false);
+  const [query, setQuery] = useState("gut microbiome");
+  const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<PipelineSearchResult | null>(null);
 
-  function toggleSource(id: PipelineSource) {
-    setSelectedSources((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        if (next.size > 1) next.delete(id); // keep at least one
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
+  async function onRun() {
+    setBusy(true);
+    setResult(await runPipelineSearch(query));
+    setBusy(false);
   }
-
-  async function handleSearch(e: React.FormEvent) {
-    e.preventDefault();
-    if (!query.trim()) return;
-    setLoading(true);
-    setResult(null);
-    const res = await fetchPipeline({
-      query: query.trim(),
-      days,
-      sources: [...selectedSources],
-    });
-    if (res) {
-      setResult(res);
-      onResult?.(query.trim(), res);
-    }
-    setLoading(false);
-  }
-
-  const hasErrors = result && Object.keys(result.errors).length > 0;
 
   return (
     <section>
-      <h2 className="mb-3 text-sm font-medium text-slate-400">
-        Pipeline search
-      </h2>
-      <div className="rounded-lg border border-slate-700/60 bg-slate-900/50 p-4">
-        <form onSubmit={handleSearch} className="space-y-4">
-          {/* Query input */}
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="e.g. gut microbiome immunotherapy"
-              className="min-w-0 flex-1 rounded border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm text-slate-100 placeholder-slate-600 outline-none focus:border-cyan-500/60 focus:ring-1 focus:ring-cyan-500/30"
-            />
-            <button
-              type="submit"
-              disabled={loading || !query.trim()}
-              className="rounded border border-cyan-600/60 bg-cyan-600/20 px-4 py-1.5 text-sm text-cyan-300 transition hover:bg-cyan-600/30 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {loading ? "Searching…" : "Search"}
-            </button>
+      <h2 className="mb-3 text-sm font-medium text-slate-400">Live pipeline</h2>
+
+      {/* The two in-flight batches */}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <BatchCard
+          title="Batch 1 · Vector-search queue"
+          count={m?.batchVectorSearch ?? 0}
+          waitingFor="Seen papers waiting to be vector searched"
+          accent="border-sky-500/40 bg-sky-500/5"
+        />
+        <BatchCard
+          title="Batch 2 · LLM-scan queue"
+          count={m?.batchLlmScan ?? 0}
+          waitingFor="Gate survivors waiting to be LLM scanned"
+          accent="border-violet-500/40 bg-violet-500/5"
+        />
+      </div>
+
+      {/* Stage throughput: seen -> passed gate -> scanned -> alerts */}
+      <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-slate-700/60 bg-slate-900/50 px-4 py-3 text-sm">
+        <span className="text-slate-400">Seen</span>
+        <span className="font-semibold tabular-nums text-slate-100">
+          {stage.seen ?? 0}
+        </span>
+        <span className="text-slate-600">→</span>
+        <span className="text-slate-400">Passed gate</span>
+        <span className="font-semibold tabular-nums text-sky-300">
+          {stage.vector_passed ?? 0}
+        </span>
+        <span className="text-slate-600">→</span>
+        <span className="text-slate-400">LLM scanned</span>
+        <span className="font-semibold tabular-nums text-violet-300">
+          {stage.scanned ?? 0}
+        </span>
+        <span className="text-slate-600">→</span>
+        <span className="text-slate-400">Alerts</span>
+        <span className="font-semibold tabular-nums text-emerald-300">
+          {stage.alerts_fired ?? 0}
+        </span>
+      </div>
+
+      {/* Stable-connection model: per-source last-contact freshness */}
+      <div className="mt-4">
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="text-xs font-medium uppercase tracking-wider text-slate-500">
+            Source connections · stable = contact in {fmtMinutes(m?.stableWindowS)}
+          </h3>
+          <span className="text-xs text-slate-600">
+            heartbeat every {fmtMinutes(m?.heartbeatIntervalS)} (staggered)
+          </span>
+        </div>
+        {sources.length === 0 ? (
+          <p className="rounded-lg border border-slate-700/60 bg-slate-900/50 p-4 text-sm text-slate-600">
+            No source contacts reported yet.
+          </p>
+        ) : (
+          <div className="overflow-hidden rounded-lg border border-slate-700/60 bg-slate-900/40">
+            {sources.map((s) => (
+              <SourceContactRow key={s} source={s} contact={contacts[s]} />
+            ))}
           </div>
+        )}
+      </div>
 
-          {/* Options row */}
-          <div className="flex flex-wrap items-center gap-4">
-            {/* Days */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500">Last</span>
-              <div className="flex gap-1">
-                {DAY_OPTIONS.map((d) => (
-                  <button
-                    key={d}
-                    type="button"
-                    onClick={() => setDays(d)}
-                    className={`rounded px-2 py-0.5 text-xs transition ${
-                      days === d
-                        ? "bg-cyan-600/30 text-cyan-300 border border-cyan-600/50"
-                        : "border border-slate-700 text-slate-500 hover:border-slate-500 hover:text-slate-300"
-                    }`}
-                  >
-                    {d}d
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Sources */}
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs text-slate-500">Sources:</span>
-              {ALL_SOURCES.map((src) => (
-                <label
-                  key={src.id}
-                  className="flex cursor-pointer items-center gap-1.5 text-xs"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedSources.has(src.id)}
-                    onChange={() => toggleSource(src.id)}
-                    className="h-3 w-3 accent-cyan-500"
-                  />
-                  <span
-                    className={
-                      selectedSources.has(src.id)
-                        ? "text-slate-300"
-                        : "text-slate-600"
-                    }
-                  >
-                    {src.label}
-                  </span>
-                </label>
-              ))}
-            </div>
-          </div>
-        </form>
-
-        {/* Results */}
+      {/* Manual pipeline fetch — pull live papers across all sources on demand */}
+      <div className="mt-4 rounded-lg border border-slate-700/60 bg-slate-900/50 p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="query (e.g. gut microbiome)"
+            className="min-w-0 flex-1 rounded border border-slate-700 bg-slate-950 px-3 py-1.5 text-sm text-slate-200 outline-none focus:border-slate-500"
+          />
+          <button
+            type="button"
+            onClick={onRun}
+            disabled={busy || query.trim() === ""}
+            className="rounded border border-cyan-600/50 bg-cyan-500/10 px-3 py-1.5 text-sm text-cyan-300 transition hover:border-cyan-500 disabled:opacity-50"
+          >
+            {busy ? "Fetching…" : "Fetch across sources"}
+          </button>
+        </div>
         {result && (
-          <div className="mt-5 space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-800 pt-4">
-              <span className="text-sm text-slate-400">
-                {result.papers.length === 0
-                  ? "No papers found"
-                  : `${result.papers.length} paper${result.papers.length !== 1 ? "s" : ""}`}
-              </span>
-              <CountsRow counts={result.counts} />
-            </div>
-
-            {hasErrors && (
-              <div className="rounded border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-400">
-                <span className="font-medium">Source errors: </span>
+          <div className="mt-3 text-xs text-slate-400">
+            <p className="text-slate-300">
+              {result.papers.length} papers (deduped) ·{" "}
+              {Object.entries(result.counts)
+                .map(([s, c]) => `${s}:${c}`)
+                .join("  ") || "no per-source counts"}
+            </p>
+            {Object.keys(result.errors).length > 0 && (
+              <p className="mt-1 text-amber-400">
                 {Object.entries(result.errors)
-                  .map(([src, msg]) => `${src}: ${msg}`)
+                  .map(([s, e]) => `${s}: ${e}`)
                   .join(" · ")}
-              </div>
+              </p>
             )}
-
-            <div className="space-y-3">
-              {result.papers.map((paper) => (
-                <PaperCard
-                  key={`${paper.source}:${paper.source_id}`}
-                  paper={paper}
-                />
-              ))}
-            </div>
           </div>
         )}
       </div>

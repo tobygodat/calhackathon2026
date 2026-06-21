@@ -1,0 +1,22 @@
+{
+  "source": "biorxiv",
+  "source_id": "90000012",
+  "title": "Phenotype transmission from discordant-twin microbiota reproduced with single-colony resolution",
+  "abstract": "We reproduced and strengthened the classic result that gut microbiota from discordant twin pairs transmit the donor's lean or obese phenotype to gnotobiotic mice. Using barcoded single-colony tracking across 24 twin pairs, recipient adiposity reliably followed donor phenotype, and we pinpointed the transmissible signal to a defined set of Bacteroidales strains. The reproduction across a larger panel with strain-level resolution reinforces the causal role of the microbiome in host metabolism originally demonstrated in the discordant-twin model.",
+  "authors": [
+    "Synthetic A. Author",
+    "Demo B. Coauthor"
+  ],
+  "doi": "10.5555/synthetic.90000012",
+  "url": "https://example.org/paper_12_extends_reinforce_fnd1",
+  "journal": "biorxiv",
+  "published": "2026-06-08",
+  "categories": [
+    "microbiome",
+    "metabolism"
+  ],
+  "uid": "doi:10.5555/synthetic.90000012",
+  "expected_label": "EXTENDS",
+  "expected_category": "previous finding reinforced",
+  "expected_match": "fnd_1"
+}

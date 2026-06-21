@@ -1,0 +1,22 @@
+{
+  "source": "arxiv",
+  "source_id": "90000019",
+  "title": "A vision transformer for nuclei segmentation in whole-slide histopathology images",
+  "abstract": "We present a vision-transformer architecture for instance segmentation of cell nuclei in gigapixel whole-slide images, combining a hierarchical encoder with a boundary-aware loss. On three public histopathology benchmarks the model improves panoptic quality over convolutional baselines while halving inference cost. The contribution is a computer-vision method for digital pathology and is unrelated to microbiology, nutrition, or host physiology.",
+  "authors": [
+    "Synthetic A. Author",
+    "Demo B. Coauthor"
+  ],
+  "doi": "10.5555/synthetic.90000019",
+  "url": "https://example.org/paper_19_notrel_histopath",
+  "journal": "arxiv",
+  "published": "2026-06-01",
+  "categories": [
+    "computer-vision",
+    "medical-imaging"
+  ],
+  "uid": "doi:10.5555/synthetic.90000019",
+  "expected_label": "NOT_RELEVANT",
+  "expected_category": "not relevant",
+  "expected_match": null
+}

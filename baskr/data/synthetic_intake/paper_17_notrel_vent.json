@@ -1,0 +1,22 @@
+{
+  "source": "biorxiv",
+  "source_id": "90000017",
+  "title": "Chemolithoautotrophic microbial communities at deep-sea hydrothermal vents along the East Pacific Rise",
+  "abstract": "We characterized microbial mats colonizing high-temperature hydrothermal vent chimneys using metagenomics and stable-isotope probing. Sulfur- and hydrogen-oxidizing Epsilonproteobacteria dominated primary production, and we reconstructed novel chemolithoautotrophic carbon-fixation pathways adapted to steep redox gradients. The findings illuminate energy flow in chemosynthetic ecosystems independent of sunlight. The work concerns deep-sea geomicrobiology and has no bearing on host-associated or gut microbial communities.",
+  "authors": [
+    "Synthetic A. Author",
+    "Demo B. Coauthor"
+  ],
+  "doi": "10.5555/synthetic.90000017",
+  "url": "https://example.org/paper_17_notrel_vent",
+  "journal": "ISME Journal",
+  "published": "2026-06-03",
+  "categories": [
+    "microbiology",
+    "geobiology"
+  ],
+  "uid": "doi:10.5555/synthetic.90000017",
+  "expected_label": "NOT_RELEVANT",
+  "expected_category": "not relevant",
+  "expected_match": null
+}

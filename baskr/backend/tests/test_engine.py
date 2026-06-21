@@ -16,6 +16,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from app.config import Settings
 from app.engine import active_search, classify_paper, run_digest
 from app.models import Classification, Label, PaperOut, Profile, SearchHit
 
@@ -98,7 +99,7 @@ class TestClassifyPaper:
         (the engine does not silently substitute all profile items)."""
         captured_items = []
 
-        def capture(items, paper):
+        def capture(items, paper, prior_work=None):
             captured_items.append(list(items))
             return "s", "u"
 
@@ -123,6 +124,82 @@ class TestClassifyPaper:
                             classify_paper(sample_paper, sample_profile,
                                            settings=settings)
 
+    def test_default_off_skips_prior_work(self, sample_paper, sample_profile):
+        """With the flag at its default (off), no prior_work reaches build_prompt
+        and query_similar is never touched (default path unchanged)."""
+        settings = Settings(anthropic_api_key=None)
+        captured = {}
+
+        def cap_build(items, paper, prior_work=None):
+            captured["prior_work"] = prior_work
+            return "s", "u"
+
+        with patch("app.redis_client.query_similar") as mock_query:
+            with patch("app.memory.retrieve_relevant",
+                       return_value=sample_profile.items):
+                with patch("app.prompts.build_prompt", side_effect=cap_build):
+                    with patch("app.llm.classify", return_value=_mock_cl()):
+                        classify_paper(sample_paper, sample_profile,
+                                       settings=settings)
+        assert captured["prior_work"] is None
+        mock_query.assert_not_called()
+
+    def test_vector_priorwork_flag_passes_prior_work_to_build_prompt(
+        self, sample_paper, sample_profile
+    ):
+        """With the flag on and query_similar mocked, the prior-work list reaches
+        build_prompt and classify still returns a valid Classification."""
+        settings = Settings(anthropic_api_key=None, use_vector_priorwork=True)
+        fake_prior = [
+            {"title": "Prior paper one", "abstract": "earlier fiber findings",
+             "uid": "p1"},
+            {"title": "Prior paper two", "abstract": "Akkermansia and immunity",
+             "uid": "p2"},
+        ]
+        captured = {}
+
+        def cap_build(items, paper, prior_work=None):
+            captured["prior_work"] = prior_work
+            return "s", "u"
+
+        with patch("app.embeddings.embed_text", return_value=[0.1] * 1536):
+            with patch("app.redis_client.query_similar",
+                       return_value=fake_prior) as mock_query:
+                with patch("app.memory.retrieve_relevant",
+                           return_value=sample_profile.items):
+                    with patch("app.prompts.build_prompt", side_effect=cap_build):
+                        with patch("app.llm.classify", return_value=_mock_cl()):
+                            result = classify_paper(sample_paper, sample_profile,
+                                                    settings=settings)
+        mock_query.assert_called_once()
+        assert captured["prior_work"] == fake_prior
+        assert isinstance(result, Classification)
+        assert result.label == Label.ANSWERS
+
+    def test_vector_priorwork_query_failure_falls_back(
+        self, sample_paper, sample_profile
+    ):
+        """If embedding/query_similar raises, classify_paper falls back to the
+        no-prior-work prompt (prior_work is None) and still classifies."""
+        settings = Settings(anthropic_api_key=None, use_vector_priorwork=True)
+        captured = {}
+
+        def cap_build(items, paper, prior_work=None):
+            captured["prior_work"] = prior_work
+            return "s", "u"
+
+        with patch("app.embeddings.embed_text", return_value=[0.1] * 1536):
+            with patch("app.redis_client.query_similar",
+                       side_effect=RuntimeError("redis down")):
+                with patch("app.memory.retrieve_relevant",
+                           return_value=sample_profile.items):
+                    with patch("app.prompts.build_prompt", side_effect=cap_build):
+                        with patch("app.llm.classify", return_value=_mock_cl()):
+                            result = classify_paper(sample_paper, sample_profile,
+                                                    settings=settings)
+        assert captured["prior_work"] is None
+        assert isinstance(result, Classification)
+
 
 class TestActiveSearch:
     def test_returns_list_of_search_hits(self, settings):
@@ -137,18 +214,17 @@ class TestActiveSearch:
 
     def test_filters_not_relevant(self, settings):
         papers = _papers(4)
-        classifications = [
-            _mock_cl(Label.ANSWERS, 0.9),
-            _mock_cl(Label.NOT_RELEVANT, 0.1),
-            _mock_cl(Label.EXTENDS, 0.7),
-            _mock_cl(Label.NOT_RELEVANT, 0.05),
-        ]
-        counter = [0]
+        # Map classification by paper id: concurrent classification runs out of
+        # order, so a shared counter would race under the thread pool.
+        by_id = {
+            "0": _mock_cl(Label.ANSWERS, 0.9),
+            "1": _mock_cl(Label.NOT_RELEVANT, 0.1),
+            "2": _mock_cl(Label.EXTENDS, 0.7),
+            "3": _mock_cl(Label.NOT_RELEVANT, 0.05),
+        }
 
         def side(paper, profile, settings=None):
-            idx = counter[0]
-            counter[0] += 1
-            return classifications[idx]
+            return by_id[paper.source_id]
 
         with patch("app.memory.load_profile",
                    return_value=MagicMock(items=[])):
@@ -170,13 +246,10 @@ class TestActiveSearch:
 
     def test_sorted_by_confidence_descending(self, settings):
         papers = _papers(3)
-        confidences = [0.6, 0.95, 0.75]
-        counter = [0]
+        conf_by_id = {"0": 0.6, "1": 0.95, "2": 0.75}
 
         def side(paper, profile, settings=None):
-            idx = counter[0]
-            counter[0] += 1
-            return _mock_cl(Label.ANSWERS, confidences[idx])
+            return _mock_cl(Label.ANSWERS, conf_by_id[paper.source_id])
 
         with patch("app.memory.load_profile",
                    return_value=MagicMock(items=[])):
@@ -185,6 +258,7 @@ class TestActiveSearch:
                     result = active_search("query", settings=settings)
         confs = [h.classification.confidence for h in result]
         assert confs == sorted(confs, reverse=True)
+        assert confs == [0.95, 0.75, 0.6]
 
     def test_empty_papers_returns_empty(self, settings):
         with patch("app.memory.load_profile",
@@ -207,12 +281,11 @@ class TestRunDigest:
 
     def test_filters_not_relevant(self, settings):
         papers = _papers(2)
-        cls = [_mock_cl(Label.ANSWERS, 0.8), _mock_cl(Label.NOT_RELEVANT, 0.1)]
-        counter = [0]
+        by_id = {"0": _mock_cl(Label.ANSWERS, 0.8),
+                 "1": _mock_cl(Label.NOT_RELEVANT, 0.1)}
 
         def side(paper, profile, settings=None):
-            idx = counter[0]; counter[0] += 1
-            return cls[idx]
+            return by_id[paper.source_id]
 
         with patch("app.memory.load_profile",
                    return_value=MagicMock(items=[])):
@@ -236,3 +309,130 @@ class TestRunDigest:
             with patch("app.engine.classify_paper", return_value=cl):
                 result = run_digest("2024-03-15", papers, settings=settings)
         assert len(result) == 10
+
+
+class TestBoundedConcurrency:
+    """Classification fans out concurrently but never exceeds the configured
+    limit (ARCHITECTURE_DECISIONS.md #12)."""
+
+    def test_run_digest_classifies_concurrently_up_to_limit(self):
+        import threading
+        import time as _time
+
+        limit = 3
+        n = 9
+        settings = Settings(anthropic_api_key=None, classify_concurrency=limit)
+        papers = _papers(n)
+
+        lock = threading.Lock()
+        active = [0]
+        peak = [0]
+
+        def slow(paper, profile, settings=None):
+            with lock:
+                active[0] += 1
+                peak[0] = max(peak[0], active[0])
+            _time.sleep(0.05)  # hold the slot so overlap is observable
+            with lock:
+                active[0] -= 1
+            return _mock_cl(Label.EXTENDS, 0.7)
+
+        with patch("app.memory.load_profile", return_value=MagicMock(items=[])):
+            with patch("app.engine.classify_paper", side_effect=slow):
+                result = run_digest("2024-03-15", papers, settings=settings)
+
+        assert len(result) == n        # every paper classified
+        # Saturates the limit (proves real concurrency) and never exceeds it.
+        assert peak[0] == limit
+
+    def test_concurrency_limit_one_is_serial(self):
+        """A limit of 1 degrades to fully serial classification (peak == 1)."""
+        import threading
+        import time as _time
+
+        settings = Settings(anthropic_api_key=None, classify_concurrency=1)
+        papers = _papers(5)
+        lock = threading.Lock()
+        active = [0]
+        peak = [0]
+
+        def slow(paper, profile, settings=None):
+            with lock:
+                active[0] += 1
+                peak[0] = max(peak[0], active[0])
+            _time.sleep(0.02)
+            with lock:
+                active[0] -= 1
+            return _mock_cl(Label.EXTENDS, 0.7)
+
+        with patch("app.memory.load_profile", return_value=MagicMock(items=[])):
+            with patch("app.engine.classify_paper", side_effect=slow):
+                run_digest("2024-03-15", papers, settings=settings)
+
+        assert peak[0] == 1
+
+
+class TestPreFilter:
+    """active_search caps LLM work to the pre-filter set regardless of fetch size
+    (ARCHITECTURE_DECISIONS.md #12)."""
+
+    def test_active_search_caps_llm_calls_to_preclassify_cap(self):
+        import threading
+
+        cap = 7
+        fetched = 50
+        settings = Settings(anthropic_api_key=None, preclassify_cap=cap,
+                            active_search_cap=5)
+        papers = _papers(fetched)
+
+        call_lock = threading.Lock()
+        calls = [0]
+
+        def counting(paper, profile, settings=None):
+            with call_lock:
+                calls[0] += 1
+            return _mock_cl(Label.ANSWERS, 0.9)
+
+        with patch("app.memory.load_profile", return_value=MagicMock(items=[])):
+            with patch("app.ingest.fetch_recent", return_value=papers):
+                with patch("app.engine.classify_paper", side_effect=counting):
+                    result = active_search("fiber", settings=settings)
+
+        # The LLM ran on exactly the pre-filter set, never the full fetch.
+        assert calls[0] == cap
+        assert calls[0] < fetched
+        assert len(result) <= settings.active_search_cap
+
+    def test_active_search_no_prefilter_when_under_cap(self):
+        """When fetch <= cap, every fetched paper is classified (no trimming)."""
+        settings = Settings(anthropic_api_key=None, preclassify_cap=20,
+                            active_search_cap=50)
+        papers = _papers(4)
+        calls = [0]
+
+        def counting(paper, profile, settings=None):
+            calls[0] += 1
+            return _mock_cl(Label.ANSWERS, 0.9)
+
+        with patch("app.memory.load_profile", return_value=MagicMock(items=[])):
+            with patch("app.ingest.fetch_recent", return_value=papers):
+                with patch("app.engine.classify_paper", side_effect=counting):
+                    active_search("fiber", settings=settings)
+        assert calls[0] == 4
+
+    def test_prefilter_keeps_most_relevant_by_lexical_signal(self, settings):
+        from app.engine import _prefilter
+
+        papers = [
+            PaperOut(source="s", source_id="a", title="cardiac surgery outcomes",
+                     abstract="heart valve replacement techniques"),
+            PaperOut(source="s", source_id="b", title="gut microbiome fiber study",
+                     abstract="dietary fiber shapes the gut microbiome and butyrate"),
+            PaperOut(source="s", source_id="c", title="quantum optics",
+                     abstract="photon entanglement experiment"),
+        ]
+        # Force the lexical fallback for a deterministic ranking.
+        with patch("app.engine._vector_scores", return_value=None):
+            top = _prefilter("gut microbiome fiber", papers, cap=1, settings=settings)
+        assert len(top) == 1
+        assert top[0].source_id == "b"

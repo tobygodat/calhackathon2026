@@ -1,0 +1,22 @@
+{
+  "source": "biorxiv",
+  "source_id": "90000007",
+  "title": "Rational ingredient selection fails to reproducibly promote growth-associated taxa across individuals",
+  "abstract": "It is widely assumed that complementary-food ingredients can be rationally chosen to favor beneficial, growth-associated taxa over disease-associated ones. Feeding identical rationally-designed ingredient sets to 200 children, we found the taxonomic response was dominated by each child's baseline community and was essentially unpredictable: the same ingredient expanded Prevotella in some children and Bacteroides or Enterobacteriaceae in others, with no reproducible enrichment of growth-associated taxa. Ingredient identity explained under 5% of the variance. These results contradict the premise that ingredients can be rationally selected to steer the community.",
+  "authors": [
+    "Synthetic A. Author",
+    "Demo B. Coauthor"
+  ],
+  "doi": "10.5555/synthetic.90000007",
+  "url": "https://example.org/paper_07_contradicts_asm2",
+  "journal": "biorxiv",
+  "published": "2026-06-13",
+  "categories": [
+    "microbiome",
+    "nutrition"
+  ],
+  "uid": "doi:10.5555/synthetic.90000007",
+  "expected_label": "CONTRADICTS",
+  "expected_category": "contradiction",
+  "expected_match": "asm_2"
+}

@@ -20,9 +20,21 @@ In BOTH paths the threshold-collapse rule is applied centrally in
 from __future__ import annotations
 
 import re
+import time
 
 from .config import SETTINGS, Settings
 from .models import Classification, Label
+
+# --- Anthropic rate-limit / overload backoff (SPEC §7 resilience) ----------
+# Retry transient capacity errors (HTTP 429 too-many-requests, 529 overloaded,
+# 5xx) with exponential backoff, then surface a clean error once exhausted.
+_RETRY_STATUS = frozenset({429, 500, 502, 503, 529})
+_RETRY_EXC_NAMES = frozenset({
+    "RateLimitError", "OverloadedError", "InternalServerError",
+    "APITimeoutError", "APIConnectionError",
+})
+_MAX_RETRIES = 5        # total attempts before giving up
+_BASE_BACKOFF = 0.5     # seconds; delay = _BASE_BACKOFF * 2**attempt
 
 # Tool that forces structured JSON output on the real Anthropic path (SPEC §7).
 _CLASSIFY_TOOL = {
@@ -92,10 +104,47 @@ def _anthropic_client(settings: Settings):
     return Anthropic(api_key=settings.anthropic_api_key)
 
 
+def _is_retryable(exc: Exception) -> bool:
+    """True for transient Anthropic errors worth retrying (429 / overload / 5xx).
+
+    Detection is duck-typed on ``status_code`` and the exception class name so it
+    works without importing the anthropic SDK and stays easy to simulate in tests.
+    """
+    status = getattr(exc, "status_code", None)
+    if status in _RETRY_STATUS:
+        return True
+    return type(exc).__name__ in _RETRY_EXC_NAMES
+
+
+def _create_with_backoff(client, **kwargs):
+    """Call ``client.messages.create`` with exponential backoff on rate limits.
+
+    Retries only transient capacity errors (see ``_is_retryable``); any other
+    error propagates immediately. After ``_MAX_RETRIES`` exhausted attempts a
+    clean ``RuntimeError`` is raised instead of leaking the raw SDK exception.
+    """
+    last_exc: Exception | None = None
+    for attempt in range(_MAX_RETRIES):
+        try:
+            return client.messages.create(**kwargs)
+        except Exception as exc:  # noqa: BLE001 — re-raise non-retryable below
+            if not _is_retryable(exc):
+                raise
+            last_exc = exc
+            if attempt < _MAX_RETRIES - 1:
+                time.sleep(_BASE_BACKOFF * (2 ** attempt))
+    raise RuntimeError(
+        f"Anthropic classification failed after {_MAX_RETRIES} attempts "
+        f"(rate limit / overload): {last_exc}"
+    ) from last_exc
+
+
 def _classify_real(system: str, user: str, settings: Settings) -> Classification:
-    """Real Anthropic path: JSON enforced via forced tool use."""
+    """Real Anthropic path: JSON enforced via forced tool use, with rate-limit
+    backoff around the API call."""
     client = _anthropic_client(settings)
-    response = client.messages.create(
+    response = _create_with_backoff(
+        client,
         model=settings.reason_model,
         max_tokens=1024,
         system=system,
@@ -122,12 +171,22 @@ def _parse_user_prompt(user: str) -> tuple[list[tuple[str, str]], str]:
     items: list[tuple[str, str]] = []
     paper_parts: list[str] = []
     in_paper = False
+    in_prior = False
     for line in user.splitlines():
+        # The optional PRIOR WORK section (opt-in vector prior-work) sits between
+        # LAB PROFILE and NEW PAPER; skip it so it pollutes neither the recovered
+        # profile items nor the paper text.
+        if line.startswith("PRIOR WORK:"):
+            in_prior = True
+            continue
         if line.startswith("NEW PAPER:"):
             in_paper = True
+            in_prior = False
             continue
         if line.startswith("Return strict JSON only:"):
             break
+        if in_prior:
+            continue
         m = _ITEM_LINE_RE.match(line)
         if m and not in_paper:
             items.append((m.group("id"), m.group("text")))

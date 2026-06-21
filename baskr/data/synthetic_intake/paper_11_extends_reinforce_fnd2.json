@@ -1,0 +1,22 @@
+{
+  "source": "pubmed",
+  "source_id": "90000011",
+  "title": "Independent Peruvian cohort replicates MDCF-2 superiority over RUSF on growth-associated biomarkers",
+  "abstract": "In an independent randomized trial in Lima, Peru (n=540) we reproduced the previously reported advantage of microbiome-directed complementary food MDCF-2 over standard ready-to-use supplementary food: the MDCF-2 arm showed larger gains in weight-for-length z-score and a stronger rise in the same growth-associated plasma proteins, with a comparable microbiota-repair signature. Replicating the effect in a new population and food supply reinforces the finding that MDCF-2 outperforms RUSF for repairing the gut microbiota and improving growth biomarkers.",
+  "authors": [
+    "Synthetic A. Author",
+    "Demo B. Coauthor"
+  ],
+  "doi": "10.5555/synthetic.90000011",
+  "url": "https://example.org/paper_11_extends_reinforce_fnd2",
+  "journal": "Nature Medicine",
+  "published": "2026-06-09",
+  "categories": [
+    "microbiome",
+    "nutrition"
+  ],
+  "uid": "doi:10.5555/synthetic.90000011",
+  "expected_label": "EXTENDS",
+  "expected_category": "previous finding reinforced",
+  "expected_match": "fnd_2"
+}

@@ -1,0 +1,22 @@
+{
+  "source": "pubmed",
+  "source_id": "90000004",
+  "title": "Antibiotic-induced arrest of microbiota maturation stunts growth, reversed by maturation rescue",
+  "abstract": "To test causality between microbial community maturation and infant growth we used a controlled perturbation: pulsed narrow-spectrum antibiotics held the gut community in an immature state in a piglet model that mirrors infant maturation. Growth velocity fell in lockstep with arrested maturation, and rescue with a maturation-stage-matched community restored both the community trajectory and catch-up growth. Because the intervention acted on the community and growth followed, the data establish a causal, not merely correlative, link between microbiota maturation and healthy postnatal growth.",
+  "authors": [
+    "Synthetic A. Author",
+    "Demo B. Coauthor"
+  ],
+  "doi": "10.5555/synthetic.90000004",
+  "url": "https://example.org/paper_04_answers_oq1",
+  "journal": "pubmed",
+  "published": "2026-06-16",
+  "categories": [
+    "microbiome",
+    "development"
+  ],
+  "uid": "doi:10.5555/synthetic.90000004",
+  "expected_label": "ANSWERS",
+  "expected_category": "question answered",
+  "expected_match": "oq_1"
+}

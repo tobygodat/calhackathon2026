@@ -1,0 +1,47 @@
+{
+  "lab_id": "blueprint-self-tracker",
+  "niche": "longevity_healthspan",
+  "display_name": "Blueprint — Longevity Self-Tracker",
+  "items": [
+    {
+      "id": "oq_1",
+      "kind": "open_question",
+      "text": "Which lifestyle or pharmacological interventions produce a measurable slowing of biological aging as captured by epigenetic clocks such as DunedinPACE?"
+    },
+    {
+      "id": "oq_2",
+      "kind": "open_question",
+      "text": "Do NAD+ precursors and senolytic compounds extend human healthspan, or do their benefits stop at biomarkers without changing functional outcomes?"
+    },
+    {
+      "id": "oq_3",
+      "kind": "open_question",
+      "text": "What evidence-based combination of diet, sleep, and exercise minimizes all-cause mortality and the risk of age-related disease?"
+    },
+    {
+      "id": "asm_1",
+      "kind": "assumption",
+      "text": "Biological aging can be quantified through biomarkers (epigenetic clocks, organ-specific aging scores) and meaningfully slowed through disciplined, measured intervention."
+    },
+    {
+      "id": "asm_2",
+      "kind": "assumption",
+      "text": "Sleep quality and metabolic markers — continuous glucose, ApoB, and inflammatory markers — are foundational, high-leverage levers for healthspan."
+    },
+    {
+      "id": "fnd_1",
+      "kind": "finding",
+      "text": "In self-tracked data, therapeutic plasma exchange was discontinued after analysis showed no measurable benefit to biological-age markers — interventions are kept only if they move a measured endpoint."
+    },
+    {
+      "id": "fnd_2",
+      "kind": "finding",
+      "text": "A structured diet, exercise, sleep, and supplement protocol was associated with a measured slowing of aging pace (DunedinPACE ~0.69) and improvement across a majority of tracked biomarkers."
+    },
+    {
+      "id": "pe_1",
+      "kind": "planned_experiment",
+      "text": "Run two comprehensive biomarker panels per year across 100+ biomarkers and 70+ organ systems, trialing tier-3 experimental therapies and retaining only those that improve measured biological-age endpoints."
+    }
+  ]
+}

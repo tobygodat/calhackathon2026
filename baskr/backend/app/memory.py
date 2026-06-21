@@ -145,15 +145,44 @@ def _semantic_rank(query: str, items: list[ProfileItem], k: int,
     return [it for it, _ in ranked[:k]]
 
 
+def _recall_via_iris(query: str, k: int,
+                     settings: Settings) -> list[ProfileItem] | None:
+    """Top-k recall from managed Iris Agent Memory (LTM), as ProfileItems.
+
+    Returns None to signal "fall back to the local ranker" when Iris is not
+    configured or any call fails — so retrieval never hard-depends on the cloud."""
+    try:
+        from . import agent_memory  # noqa: PLC0415
+        if not agent_memory.is_enabled():
+            return None
+        recalled = agent_memory.recall(query, settings.lab_id, k=k)
+    except Exception:  # noqa: BLE001 — any Iris failure -> local ranker
+        return None
+    if not recalled:
+        return None
+    items: list[ProfileItem] = []
+    for r in recalled:
+        try:
+            kind = ProfileItemKind(r.get("kind", ""))
+        except ValueError:
+            kind = ProfileItemKind.FINDING
+        items.append(ProfileItem(id=r.get("id", ""), kind=kind, text=r.get("text", "")))
+    return items
+
+
 def retrieve_relevant(query: str, k: int = SETTINGS.memory_top_k,
                       settings: Settings = SETTINGS) -> list[ProfileItem]:
     """Top-k retrieval of profile items for a paper/query (SPEC §6).
 
-    Prefers a **semantic** ranker — cosine similarity over embedded profile items vs
-    the embedded query (Phase 2). Falls back to the deterministic lexical
-    token-overlap ranker when embeddings are unavailable. Signature is unchanged so
-    Phase 1 callers/tests keep working; ties break on item id for stability.
+    Prefers **managed Iris Agent Memory** (LTM, semantic) when configured, then a
+    local **semantic** ranker — cosine over embedded profile items vs the embedded
+    query — then the deterministic lexical token-overlap ranker. Signature is
+    unchanged so callers/tests keep working; ties break on item id for stability.
     """
+    iris = _recall_via_iris(query, k, settings)
+    if iris is not None:
+        return iris
+
     items = load_profile(settings).items
     if not items:
         return []

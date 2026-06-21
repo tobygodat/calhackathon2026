@@ -1,0 +1,22 @@
+{
+  "source": "arxiv",
+  "source_id": "90000015",
+  "title": "A genome-scale metabolic modeling pipeline to rationally design microbiota-repairing food ingredients",
+  "abstract": "The assumption that complementary-food ingredients can be rationally selected to favor growth-associated taxa has lacked a predictive method. We built a community metabolic-modeling pipeline that simulates how candidate ingredient glycans are partitioned among gut taxa and predicts which ingredients selectively feed growth-associated species. Predictions matched ex vivo fermentation for 19 of 22 ingredients. The pipeline supplies the missing rational-design tool behind ingredient selection, extending the assumption into an actionable, testable framework.",
+  "authors": [
+    "Synthetic A. Author",
+    "Demo B. Coauthor"
+  ],
+  "doi": "10.5555/synthetic.90000015",
+  "url": "https://example.org/paper_15_extends_gap_asm2",
+  "journal": "arxiv",
+  "published": "2026-06-05",
+  "categories": [
+    "microbiome",
+    "computational"
+  ],
+  "uid": "doi:10.5555/synthetic.90000015",
+  "expected_label": "EXTENDS",
+  "expected_category": "knowledge gap filler",
+  "expected_match": "asm_2"
+}

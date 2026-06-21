@@ -65,3 +65,46 @@ def test_deterministic() -> None:
     a = build_prompt(_items(), _paper())
     b = build_prompt(_items(), _paper())
     assert a == b
+
+
+# --- opt-in PRIOR WORK section ---------------------------------------------
+
+def _prior() -> list[dict]:
+    return [
+        {"title": "SCFA and colonic Tregs", "abstract": "Earlier work on butyrate.",
+         "uid": "p1"},
+        {"title": "Fiber fermentation review", "abstract": "Survey of SCFA output.",
+         "uid": "p2"},
+    ]
+
+
+def test_no_prior_work_is_byte_identical_to_default() -> None:
+    """Passing None/[] for prior_work yields exactly the old output (default path
+    unchanged)."""
+    base = build_prompt(_items(), _paper())
+    assert build_prompt(_items(), _paper(), prior_work=None) == base
+    assert build_prompt(_items(), _paper(), prior_work=[]) == base
+
+
+def test_prior_work_section_rendered_between_profile_and_paper() -> None:
+    _, user = build_prompt(_items(), _paper(), prior_work=_prior())
+    assert "PRIOR WORK:" in user
+    assert user.index("LAB PROFILE:") < user.index("PRIOR WORK:")
+    assert user.index("PRIOR WORK:") < user.index("NEW PAPER:")
+    for rec in _prior():
+        assert rec["title"] in user
+
+
+def test_degraded_parser_skips_prior_work() -> None:
+    """llm._parse_user_prompt must recover the SAME profile items and paper text
+    whether or not a PRIOR WORK section is present (keeps the no-API-key path
+    working)."""
+    from app.llm import _parse_user_prompt
+
+    _, plain = build_prompt(_items(), _paper())
+    _, withprior = build_prompt(_items(), _paper(), prior_work=_prior())
+    assert _parse_user_prompt(plain) == _parse_user_prompt(withprior)
+    items, paper_text = _parse_user_prompt(withprior)
+    assert [i[0] for i in items] == ["oq_1", "asm_1"]
+    # Prior-work titles must not leak into the recovered paper text.
+    assert "SCFA and colonic Tregs" not in paper_text

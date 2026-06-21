@@ -1,0 +1,22 @@
+{
+  "source": "pubmed",
+  "source_id": "90000005",
+  "title": "A ranked screen of complementary-food ingredients for repair of immature gut microbiota",
+  "abstract": "Selecting complementary-food ingredients that repair an immature microbiota has been done largely by trial and error. We screened 22 candidate ingredients ex vivo against fecal communities from undernourished children and validated the top hits in a randomized feeding study. Soybean, peanut, and chickpea flours ranked highest for restoring growth-associated taxa and suppressing Enterobacteriaceae, and the in vivo growth-biomarker response tracked the ex vivo ranking. The work answers which MDCF ingredients most effectively repair an immature microbiota and restore healthy growth in undernourished children.",
+  "authors": [
+    "Synthetic A. Author",
+    "Demo B. Coauthor"
+  ],
+  "doi": "10.5555/synthetic.90000005",
+  "url": "https://example.org/paper_05_answers_oq2",
+  "journal": "Nature Medicine",
+  "published": "2026-06-15",
+  "categories": [
+    "microbiome",
+    "nutrition"
+  ],
+  "uid": "doi:10.5555/synthetic.90000005",
+  "expected_label": "ANSWERS",
+  "expected_category": "question answered",
+  "expected_match": "oq_2"
+}

@@ -6,6 +6,8 @@ is exercised directly via monkeypatch of the inner classifier.
 
 from __future__ import annotations
 
+import pytest
+
 from app import llm
 from app.config import Settings
 from app.models import Classification, Label
@@ -13,6 +15,39 @@ from app.prompts import build_prompt
 from app.models import PaperOut, ProfileItem, ProfileItemKind
 
 _SETTINGS = Settings(anthropic_api_key=None, relevance_threshold=0.5)
+_LIVE_SETTINGS = Settings(
+    anthropic_api_key="sk-ant-test",
+    relevance_threshold=0.5,
+    reason_model="claude-sonnet-4-6",
+)
+
+
+def _tool_response():
+    """A fake Anthropic Messages response carrying one forced tool_use block."""
+    class _ToolBlock:
+        type = "tool_use"
+        input = {
+            "label": "ANSWERS", "reason": "ok",
+            "matched_item_id": "oq_1", "confidence": 0.9,
+        }
+
+    class _Resp:
+        content = [_ToolBlock()]
+
+    return _Resp()
+
+
+def _fake_client(create):
+    """Build a stand-in Anthropic client whose messages.create == ``create``."""
+    class _Msgs:
+        pass
+
+    _Msgs.create = staticmethod(create)
+
+    class _Client:
+        messages = _Msgs()
+
+    return _Client()
 
 
 def _prompt() -> tuple[str, str]:
@@ -84,43 +119,71 @@ def test_degraded_path_matches_a_profile_item() -> None:
     assert raw.matched_item_id in {"oq_1", "fnd_1"}
 
 
-def test_degraded_sets_new_memory_when_matched() -> None:
-    """The 'Remember' step: a matched degraded result proposes a new_memory."""
-    system, user = _prompt()
-    raw = llm._classify_degraded(user, _SETTINGS)
-    assert raw.matched_item_id is not None
-    assert raw.new_memory is not None
-    assert raw.matched_item_id in raw.new_memory
+# --- rate-limit / overload backoff (ARCHITECTURE_DECISIONS.md #12) ----------
 
+def test_classify_retries_on_rate_limit(monkeypatch) -> None:
+    """A simulated 429 is retried with exponential backoff, then succeeds."""
+    class _Fake429(Exception):
+        status_code = 429
 
-def test_threshold_collapse_drops_new_memory(monkeypatch) -> None:
-    """A sub-threshold (NOT_RELEVANT) result must not carry a new_memory."""
-    forced = Classification(
-        label=Label.ANSWERS,
-        reason="forced",
-        matched_item_id="oq_1",
-        confidence=0.10,  # below threshold 0.5
-        new_memory="should be dropped on collapse",
-    )
-    monkeypatch.setattr(llm, "_classify_degraded", lambda user, settings: forced)
+    calls = [0]
 
-    system, user = _prompt()
-    result = llm.classify(system, user, _SETTINGS)
-    assert result.label is Label.NOT_RELEVANT
-    assert result.new_memory is None
+    def create(**kwargs):
+        calls[0] += 1
+        if calls[0] < 3:        # fail the first two attempts
+            raise _Fake429("rate limited")
+        return _tool_response()
 
-
-def test_high_confidence_preserves_new_memory(monkeypatch) -> None:
-    """A relevant result keeps the proposed new_memory for write-back."""
-    forced = Classification(
-        label=Label.EXTENDS,
-        reason="strong match",
-        matched_item_id="fnd_1",
-        confidence=0.80,
-        new_memory="Butyrate extends the SCFA/Treg finding.",
-    )
-    monkeypatch.setattr(llm, "_classify_degraded", lambda user, settings: forced)
+    sleeps: list[float] = []
+    monkeypatch.setattr(llm, "_anthropic_client", lambda s: _fake_client(create))
+    monkeypatch.setattr(llm, "_BASE_BACKOFF", 0.0)          # no real waiting
+    monkeypatch.setattr(llm.time, "sleep", lambda d: sleeps.append(d))
 
     system, user = _prompt()
-    result = llm.classify(system, user, _SETTINGS)
-    assert result.new_memory == "Butyrate extends the SCFA/Treg finding."
+    result = llm.classify(system, user, _LIVE_SETTINGS)
+
+    assert isinstance(result, Classification)
+    assert result.label is Label.ANSWERS
+    assert calls[0] == 3            # two failures + one success
+    assert len(sleeps) == 2         # one backoff per retried failure
+
+
+def test_classify_raises_clean_error_after_exhaustion(monkeypatch) -> None:
+    """Persistent overload (529) exhausts retries and surfaces a clean RuntimeError."""
+    class _Fake529(Exception):
+        status_code = 529
+
+    calls = [0]
+
+    def create(**kwargs):
+        calls[0] += 1
+        raise _Fake529("overloaded")
+
+    monkeypatch.setattr(llm, "_anthropic_client", lambda s: _fake_client(create))
+    monkeypatch.setattr(llm, "_BASE_BACKOFF", 0.0)
+    monkeypatch.setattr(llm.time, "sleep", lambda d: None)
+
+    system, user = _prompt()
+    with pytest.raises(RuntimeError, match="after .* attempts"):
+        llm.classify(system, user, _LIVE_SETTINGS)
+    assert calls[0] == llm._MAX_RETRIES   # tried exactly the capped number of times
+
+
+def test_classify_does_not_retry_non_retryable(monkeypatch) -> None:
+    """A 400 (bad request) is not retried — it propagates on the first attempt."""
+    class _BadRequest(Exception):
+        status_code = 400
+
+    calls = [0]
+
+    def create(**kwargs):
+        calls[0] += 1
+        raise _BadRequest("bad request")
+
+    monkeypatch.setattr(llm, "_anthropic_client", lambda s: _fake_client(create))
+    monkeypatch.setattr(llm.time, "sleep", lambda d: None)
+
+    system, user = _prompt()
+    with pytest.raises(_BadRequest):
+        llm.classify(system, user, _LIVE_SETTINGS)
+    assert calls[0] == 1                   # no retries

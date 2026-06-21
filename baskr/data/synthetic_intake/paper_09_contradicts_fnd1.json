@@ -1,0 +1,22 @@
+{
+  "source": "biorxiv",
+  "source_id": "90000009",
+  "title": "Discordant-twin microbiota transplants fail to transmit adiposity phenotype in gnotobiotic mice",
+  "abstract": "Transplanting gut microbiota from discordant (lean/obese) twin pairs into germ-free mice was reported to transmit the donor adiposity phenotype, evidencing a causal microbiome role in host metabolism. Repeating the experiment across four mouse facilities with 18 twin pairs under standardized diet, we observed no reproducible transmission: recipient adiposity tracked diet and cage, not donor phenotype, and a meta-analysis of recipients showed a null donor effect. These findings contradict the claim that discordant-twin microbiota transmit the donor's obese or lean phenotype.",
+  "authors": [
+    "Synthetic A. Author",
+    "Demo B. Coauthor"
+  ],
+  "doi": "10.5555/synthetic.90000009",
+  "url": "https://example.org/paper_09_contradicts_fnd1",
+  "journal": "biorxiv",
+  "published": "2026-06-11",
+  "categories": [
+    "microbiome",
+    "metabolism"
+  ],
+  "uid": "doi:10.5555/synthetic.90000009",
+  "expected_label": "CONTRADICTS",
+  "expected_category": "contradiction",
+  "expected_match": "fnd_1"
+}

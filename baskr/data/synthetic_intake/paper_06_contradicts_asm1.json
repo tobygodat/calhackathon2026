@@ -1,0 +1,22 @@
+{
+  "source": "pubmed",
+  "source_id": "90000006",
+  "title": "Gut microbiota immaturity is a consequence, not a cause, of childhood undernutrition",
+  "abstract": "A central assumption holds that microbiota immaturity causally contributes to undernutrition. In a 3,000-child birth cohort with monthly sampling and a sibling-controlled design, we found that drops in microbiota maturity consistently FOLLOWED rather than preceded growth faltering, and that refeeding restored growth before community maturity recovered. Instrumental-variable analysis found no causal path from immaturity to undernutrition once dietary intake was controlled. We conclude microbiota immaturity is a downstream consequence of undernutrition, directly challenging the view that it is a causal contributor.",
+  "authors": [
+    "Synthetic A. Author",
+    "Demo B. Coauthor"
+  ],
+  "doi": "10.5555/synthetic.90000006",
+  "url": "https://example.org/paper_06_contradicts_asm1",
+  "journal": "Lancet",
+  "published": "2026-06-14",
+  "categories": [
+    "microbiome",
+    "epidemiology"
+  ],
+  "uid": "doi:10.5555/synthetic.90000006",
+  "expected_label": "CONTRADICTS",
+  "expected_category": "contradiction",
+  "expected_match": "asm_1"
+}

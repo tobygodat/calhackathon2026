@@ -1,0 +1,442 @@
+[
+  {
+    "source": "pubmed",
+    "source_id": "90000001",
+    "title": "Microbiota maturation causally precedes and drives postnatal weight gain in a germ-free infant-transfer model",
+    "abstract": "Whether gut microbial maturation causes healthy infant growth or merely tracks it has remained unresolved. We transplanted age-resolved fecal communities from a longitudinal infant cohort into germ-free mouse pups and applied convergent cross-mapping and time-lagged interventions to separate cause from correlation. Pups receiving chronologically mature communities gained significantly more lean mass and showed accelerated bone growth than littermates receiving immature communities sampled from the same infants weeks earlier. Sequential swap experiments demonstrate that the maturation state of the community, not host age, sets the growth trajectory. We conclude that microbiota maturation is a causal driver of postnatal growth rather than a passive correlate.",
+    "authors": [
+      "Synthetic A. Author",
+      "Demo B. Coauthor"
+    ],
+    "doi": "10.5555/synthetic.90000001",
+    "url": "https://example.org/paper_01_answers_oq1",
+    "journal": "Cell Host & Microbe",
+    "published": "2026-06-19",
+    "categories": [
+      "microbiome",
+      "development"
+    ],
+    "uid": "doi:10.5555/synthetic.90000001",
+    "expected_label": "ANSWERS",
+    "expected_category": "question answered",
+    "expected_match": "oq_1"
+  },
+  {
+    "source": "pubmed",
+    "source_id": "90000002",
+    "title": "Chickpea and green-banana flour are the active microbiota-repairing ingredients in MDCF formulations",
+    "abstract": "Microbiome-directed complementary foods (MDCFs) repair immature gut microbiota in undernourished children, but which ingredients carry the effect has been unknown. In a four-arm randomized factorial trial we deconstructed an MDCF into its components and fed single-ingredient prototypes to children with moderate acute malnutrition. Chickpea and green-banana flour each independently expanded growth-associated taxa (Faecalibacterium prausnitzii, Prevotella copri) and lifted growth-associated plasma proteins, whereas rice and oil arms did not. The combination was additive. These results identify the specific complementary-food ingredients that most effectively repair an immature microbiota and restore growth.",
+    "authors": [
+      "Synthetic A. Author",
+      "Demo B. Coauthor"
+    ],
+    "doi": "10.5555/synthetic.90000002",
+    "url": "https://example.org/paper_02_answers_oq2",
+    "journal": "Science Translational Medicine",
+    "published": "2026-06-18",
+    "categories": [
+      "microbiome",
+      "nutrition"
+    ],
+    "uid": "doi:10.5555/synthetic.90000002",
+    "expected_label": "ANSWERS",
+    "expected_category": "question answered",
+    "expected_match": "oq_2"
+  },
+  {
+    "source": "biorxiv",
+    "source_id": "90000003",
+    "title": "Diet-induced expansion of butyrate producers activates hepatic IGF-1 signaling to govern growth",
+    "abstract": "How diet-driven shifts in microbial community composition reach the host pathways that control growth has been a gap. Using gnotobiotic mice colonized with defined consortia and fed contrasting diets, we traced a mechanistic chain: fiber-rich diets expanded butyrate-producing Roseburia, elevating portal butyrate, which acted on intestinal enteroendocrine cells to raise GLP-1 and on hepatocytes to amplify IGF-1 signaling. Blocking the butyrate receptor abolished the growth signal despite an unchanged community. This maps a specific diet-microbiome-host signaling axis linking community shifts to the metabolic and immune pathways that govern growth.",
+    "authors": [
+      "Synthetic A. Author",
+      "Demo B. Coauthor"
+    ],
+    "doi": "10.5555/synthetic.90000003",
+    "url": "https://example.org/paper_03_answers_oq3",
+    "journal": "biorxiv",
+    "published": "2026-06-17",
+    "categories": [
+      "microbiome",
+      "metabolism"
+    ],
+    "uid": "doi:10.5555/synthetic.90000003",
+    "expected_label": "ANSWERS",
+    "expected_category": "question answered",
+    "expected_match": "oq_3"
+  },
+  {
+    "source": "pubmed",
+    "source_id": "90000004",
+    "title": "Antibiotic-induced arrest of microbiota maturation stunts growth, reversed by maturation rescue",
+    "abstract": "To test causality between microbial community maturation and infant growth we used a controlled perturbation: pulsed narrow-spectrum antibiotics held the gut community in an immature state in a piglet model that mirrors infant maturation. Growth velocity fell in lockstep with arrested maturation, and rescue with a maturation-stage-matched community restored both the community trajectory and catch-up growth. Because the intervention acted on the community and growth followed, the data establish a causal, not merely correlative, link between microbiota maturation and healthy postnatal growth.",
+    "authors": [
+      "Synthetic A. Author",
+      "Demo B. Coauthor"
+    ],
+    "doi": "10.5555/synthetic.90000004",
+    "url": "https://example.org/paper_04_answers_oq1",
+    "journal": "pubmed",
+    "published": "2026-06-16",
+    "categories": [
+      "microbiome",
+      "development"
+    ],
+    "uid": "doi:10.5555/synthetic.90000004",
+    "expected_label": "ANSWERS",
+    "expected_category": "question answered",
+    "expected_match": "oq_1"
+  },
+  {
+    "source": "pubmed",
+    "source_id": "90000005",
+    "title": "A ranked screen of complementary-food ingredients for repair of immature gut microbiota",
+    "abstract": "Selecting complementary-food ingredients that repair an immature microbiota has been done largely by trial and error. We screened 22 candidate ingredients ex vivo against fecal communities from undernourished children and validated the top hits in a randomized feeding study. Soybean, peanut, and chickpea flours ranked highest for restoring growth-associated taxa and suppressing Enterobacteriaceae, and the in vivo growth-biomarker response tracked the ex vivo ranking. The work answers which MDCF ingredients most effectively repair an immature microbiota and restore healthy growth in undernourished children.",
+    "authors": [
+      "Synthetic A. Author",
+      "Demo B. Coauthor"
+    ],
+    "doi": "10.5555/synthetic.90000005",
+    "url": "https://example.org/paper_05_answers_oq2",
+    "journal": "Nature Medicine",
+    "published": "2026-06-15",
+    "categories": [
+      "microbiome",
+      "nutrition"
+    ],
+    "uid": "doi:10.5555/synthetic.90000005",
+    "expected_label": "ANSWERS",
+    "expected_category": "question answered",
+    "expected_match": "oq_2"
+  },
+  {
+    "source": "pubmed",
+    "source_id": "90000006",
+    "title": "Gut microbiota immaturity is a consequence, not a cause, of childhood undernutrition",
+    "abstract": "A central assumption holds that microbiota immaturity causally contributes to undernutrition. In a 3,000-child birth cohort with monthly sampling and a sibling-controlled design, we found that drops in microbiota maturity consistently FOLLOWED rather than preceded growth faltering, and that refeeding restored growth before community maturity recovered. Instrumental-variable analysis found no causal path from immaturity to undernutrition once dietary intake was controlled. We conclude microbiota immaturity is a downstream consequence of undernutrition, directly challenging the view that it is a causal contributor.",
+    "authors": [
+      "Synthetic A. Author",
+      "Demo B. Coauthor"
+    ],
+    "doi": "10.5555/synthetic.90000006",
+    "url": "https://example.org/paper_06_contradicts_asm1",
+    "journal": "Lancet",
+    "published": "2026-06-14",
+    "categories": [
+      "microbiome",
+      "epidemiology"
+    ],
+    "uid": "doi:10.5555/synthetic.90000006",
+    "expected_label": "CONTRADICTS",
+    "expected_category": "contradiction",
+    "expected_match": "asm_1"
+  },
+  {
+    "source": "biorxiv",
+    "source_id": "90000007",
+    "title": "Rational ingredient selection fails to reproducibly promote growth-associated taxa across individuals",
+    "abstract": "It is widely assumed that complementary-food ingredients can be rationally chosen to favor beneficial, growth-associated taxa over disease-associated ones. Feeding identical rationally-designed ingredient sets to 200 children, we found the taxonomic response was dominated by each child's baseline community and was essentially unpredictable: the same ingredient expanded Prevotella in some children and Bacteroides or Enterobacteriaceae in others, with no reproducible enrichment of growth-associated taxa. Ingredient identity explained under 5% of the variance. These results contradict the premise that ingredients can be rationally selected to steer the community.",
+    "authors": [
+      "Synthetic A. Author",
+      "Demo B. Coauthor"
+    ],
+    "doi": "10.5555/synthetic.90000007",
+    "url": "https://example.org/paper_07_contradicts_asm2",
+    "journal": "biorxiv",
+    "published": "2026-06-13",
+    "categories": [
+      "microbiome",
+      "nutrition"
+    ],
+    "uid": "doi:10.5555/synthetic.90000007",
+    "expected_label": "CONTRADICTS",
+    "expected_category": "contradiction",
+    "expected_match": "asm_2"
+  },
+  {
+    "source": "pubmed",
+    "source_id": "90000008",
+    "title": "MDCF-2 does not outperform standard ready-to-use supplementary food in a multi-country replication trial",
+    "abstract": "An influential trial reported that the microbiome-directed food MDCF-2 outperformed standard ready-to-use supplementary food (RUSF) on microbiota repair and growth biomarkers. In a pre-registered three-country replication (n=1,100), MDCF-2 and RUSF produced statistically indistinguishable changes in weight-for-length z-score and in the growth-associated plasma proteome, and the microbiota-repair signature did not differ between arms. The previously reported MDCF-2 advantage did not replicate, contradicting the finding that MDCF-2 is superior to RUSF.",
+    "authors": [
+      "Synthetic A. Author",
+      "Demo B. Coauthor"
+    ],
+    "doi": "10.5555/synthetic.90000008",
+    "url": "https://example.org/paper_08_contradicts_fnd2",
+    "journal": "NEJM",
+    "published": "2026-06-12",
+    "categories": [
+      "microbiome",
+      "nutrition"
+    ],
+    "uid": "doi:10.5555/synthetic.90000008",
+    "expected_label": "CONTRADICTS",
+    "expected_category": "contradiction",
+    "expected_match": "fnd_2"
+  },
+  {
+    "source": "biorxiv",
+    "source_id": "90000009",
+    "title": "Discordant-twin microbiota transplants fail to transmit adiposity phenotype in gnotobiotic mice",
+    "abstract": "Transplanting gut microbiota from discordant (lean/obese) twin pairs into germ-free mice was reported to transmit the donor adiposity phenotype, evidencing a causal microbiome role in host metabolism. Repeating the experiment across four mouse facilities with 18 twin pairs under standardized diet, we observed no reproducible transmission: recipient adiposity tracked diet and cage, not donor phenotype, and a meta-analysis of recipients showed a null donor effect. These findings contradict the claim that discordant-twin microbiota transmit the donor's obese or lean phenotype.",
+    "authors": [
+      "Synthetic A. Author",
+      "Demo B. Coauthor"
+    ],
+    "doi": "10.5555/synthetic.90000009",
+    "url": "https://example.org/paper_09_contradicts_fnd1",
+    "journal": "biorxiv",
+    "published": "2026-06-11",
+    "categories": [
+      "microbiome",
+      "metabolism"
+    ],
+    "uid": "doi:10.5555/synthetic.90000009",
+    "expected_label": "CONTRADICTS",
+    "expected_category": "contradiction",
+    "expected_match": "fnd_1"
+  },
+  {
+    "source": "pubmed",
+    "source_id": "90000010",
+    "title": "Mendelian-randomization analysis finds no causal effect of microbiota immaturity on child growth",
+    "abstract": "Using host genetic variants that shape gut community maturation as instruments, we performed a Mendelian-randomization study across three cohorts to test whether microbiota immaturity causally contributes to undernutrition. Genetically predicted immaturity showed no significant effect on weight-for-age or stunting, while reverse-direction tests supported growth status driving community state. The genetic evidence argues against a causal contribution of microbiota immaturity to childhood undernutrition, contradicting the prevailing causal assumption.",
+    "authors": [
+      "Synthetic A. Author",
+      "Demo B. Coauthor"
+    ],
+    "doi": "10.5555/synthetic.90000010",
+    "url": "https://example.org/paper_10_contradicts_asm1",
+    "journal": "pubmed",
+    "published": "2026-06-10",
+    "categories": [
+      "microbiome",
+      "genetics"
+    ],
+    "uid": "doi:10.5555/synthetic.90000010",
+    "expected_label": "CONTRADICTS",
+    "expected_category": "contradiction",
+    "expected_match": "asm_1"
+  },
+  {
+    "source": "pubmed",
+    "source_id": "90000011",
+    "title": "Independent Peruvian cohort replicates MDCF-2 superiority over RUSF on growth-associated biomarkers",
+    "abstract": "In an independent randomized trial in Lima, Peru (n=540) we reproduced the previously reported advantage of microbiome-directed complementary food MDCF-2 over standard ready-to-use supplementary food: the MDCF-2 arm showed larger gains in weight-for-length z-score and a stronger rise in the same growth-associated plasma proteins, with a comparable microbiota-repair signature. Replicating the effect in a new population and food supply reinforces the finding that MDCF-2 outperforms RUSF for repairing the gut microbiota and improving growth biomarkers.",
+    "authors": [
+      "Synthetic A. Author",
+      "Demo B. Coauthor"
+    ],
+    "doi": "10.5555/synthetic.90000011",
+    "url": "https://example.org/paper_11_extends_reinforce_fnd2",
+    "journal": "Nature Medicine",
+    "published": "2026-06-09",
+    "categories": [
+      "microbiome",
+      "nutrition"
+    ],
+    "uid": "doi:10.5555/synthetic.90000011",
+    "expected_label": "EXTENDS",
+    "expected_category": "previous finding reinforced",
+    "expected_match": "fnd_2"
+  },
+  {
+    "source": "biorxiv",
+    "source_id": "90000012",
+    "title": "Phenotype transmission from discordant-twin microbiota reproduced with single-colony resolution",
+    "abstract": "We reproduced and strengthened the classic result that gut microbiota from discordant twin pairs transmit the donor's lean or obese phenotype to gnotobiotic mice. Using barcoded single-colony tracking across 24 twin pairs, recipient adiposity reliably followed donor phenotype, and we pinpointed the transmissible signal to a defined set of Bacteroidales strains. The reproduction across a larger panel with strain-level resolution reinforces the causal role of the microbiome in host metabolism originally demonstrated in the discordant-twin model.",
+    "authors": [
+      "Synthetic A. Author",
+      "Demo B. Coauthor"
+    ],
+    "doi": "10.5555/synthetic.90000012",
+    "url": "https://example.org/paper_12_extends_reinforce_fnd1",
+    "journal": "biorxiv",
+    "published": "2026-06-08",
+    "categories": [
+      "microbiome",
+      "metabolism"
+    ],
+    "uid": "doi:10.5555/synthetic.90000012",
+    "expected_label": "EXTENDS",
+    "expected_category": "previous finding reinforced",
+    "expected_match": "fnd_1"
+  },
+  {
+    "source": "pubmed",
+    "source_id": "90000013",
+    "title": "Growth benefits of MDCF-2 persist to 24 months in extended follow-up of malnourished children",
+    "abstract": "Extending the original MDCF-2 trial, we followed the Bangladeshi cohort to 24 months. Children who received microbiome-directed complementary food MDCF-2 maintained their advantage over the standard-supplement arm in linear growth and retained a more mature, repaired microbiota and elevated growth-associated plasma biomarkers. The durable benefit reinforces and extends the earlier finding that MDCF-2 outperforms standard ready-to-use supplementary food at repairing the microbiota and improving growth.",
+    "authors": [
+      "Synthetic A. Author",
+      "Demo B. Coauthor"
+    ],
+    "doi": "10.5555/synthetic.90000013",
+    "url": "https://example.org/paper_13_extends_reinforce_fnd2",
+    "journal": "NEJM",
+    "published": "2026-06-07",
+    "categories": [
+      "microbiome",
+      "nutrition"
+    ],
+    "uid": "doi:10.5555/synthetic.90000013",
+    "expected_label": "EXTENDS",
+    "expected_category": "previous finding reinforced",
+    "expected_match": "fnd_2"
+  },
+  {
+    "source": "biorxiv",
+    "source_id": "90000014",
+    "title": "Discordant-twin microbiota also transmit intestinal immune tone, extending the metabolic transmission model",
+    "abstract": "Prior work showed discordant-twin microbiota transmit host metabolic phenotype to gnotobiotic mice. We extend that model into an unexplored dimension: immune phenotype. Recipients of obese-twin communities developed a distinct intestinal Th17/Treg balance and heightened low-grade inflammation independent of adiposity, revealing a previously uncharacterized immunological arm of microbiome transmission. This fills a gap adjacent to the established metabolic finding by showing the transmissible community also reprograms host immune signaling.",
+    "authors": [
+      "Synthetic A. Author",
+      "Demo B. Coauthor"
+    ],
+    "doi": "10.5555/synthetic.90000014",
+    "url": "https://example.org/paper_14_extends_gap_fnd1",
+    "journal": "biorxiv",
+    "published": "2026-06-06",
+    "categories": [
+      "microbiome",
+      "immunology"
+    ],
+    "uid": "doi:10.5555/synthetic.90000014",
+    "expected_label": "EXTENDS",
+    "expected_category": "knowledge gap filler",
+    "expected_match": "fnd_1"
+  },
+  {
+    "source": "arxiv",
+    "source_id": "90000015",
+    "title": "A genome-scale metabolic modeling pipeline to rationally design microbiota-repairing food ingredients",
+    "abstract": "The assumption that complementary-food ingredients can be rationally selected to favor growth-associated taxa has lacked a predictive method. We built a community metabolic-modeling pipeline that simulates how candidate ingredient glycans are partitioned among gut taxa and predicts which ingredients selectively feed growth-associated species. Predictions matched ex vivo fermentation for 19 of 22 ingredients. The pipeline supplies the missing rational-design tool behind ingredient selection, extending the assumption into an actionable, testable framework.",
+    "authors": [
+      "Synthetic A. Author",
+      "Demo B. Coauthor"
+    ],
+    "doi": "10.5555/synthetic.90000015",
+    "url": "https://example.org/paper_15_extends_gap_asm2",
+    "journal": "arxiv",
+    "published": "2026-06-05",
+    "categories": [
+      "microbiome",
+      "computational"
+    ],
+    "uid": "doi:10.5555/synthetic.90000015",
+    "expected_label": "EXTENDS",
+    "expected_category": "knowledge gap filler",
+    "expected_match": "asm_2"
+  },
+  {
+    "source": "biorxiv",
+    "source_id": "90000016",
+    "title": "Bile-acid remodeling is a previously unrecognized route by which repaired microbiota improve growth",
+    "abstract": "Beyond short-chain fatty acids, the mechanisms by which a repaired microbiota improves growth remain incompletely mapped. Studying children and gnotobiotic mice fed microbiome-directed food, we identify microbial bile-acid deconjugation as a distinct, previously unrecognized axis: repaired communities shifted the bile-acid pool, activating intestinal FXR signaling that tracked growth-associated plasma biomarkers. This fills a mechanistic gap left open by prior MDCF work and extends it with a new microbiota-to-host signaling route.",
+    "authors": [
+      "Synthetic A. Author",
+      "Demo B. Coauthor"
+    ],
+    "doi": "10.5555/synthetic.90000016",
+    "url": "https://example.org/paper_16_extends_gap_oq3",
+    "journal": "biorxiv",
+    "published": "2026-06-04",
+    "categories": [
+      "microbiome",
+      "metabolism"
+    ],
+    "uid": "doi:10.5555/synthetic.90000016",
+    "expected_label": "EXTENDS",
+    "expected_category": "knowledge gap filler",
+    "expected_match": "fnd_2"
+  },
+  {
+    "source": "biorxiv",
+    "source_id": "90000017",
+    "title": "Chemolithoautotrophic microbial communities at deep-sea hydrothermal vents along the East Pacific Rise",
+    "abstract": "We characterized microbial mats colonizing high-temperature hydrothermal vent chimneys using metagenomics and stable-isotope probing. Sulfur- and hydrogen-oxidizing Epsilonproteobacteria dominated primary production, and we reconstructed novel chemolithoautotrophic carbon-fixation pathways adapted to steep redox gradients. The findings illuminate energy flow in chemosynthetic ecosystems independent of sunlight. The work concerns deep-sea geomicrobiology and has no bearing on host-associated or gut microbial communities.",
+    "authors": [
+      "Synthetic A. Author",
+      "Demo B. Coauthor"
+    ],
+    "doi": "10.5555/synthetic.90000017",
+    "url": "https://example.org/paper_17_notrel_vent",
+    "journal": "ISME Journal",
+    "published": "2026-06-03",
+    "categories": [
+      "microbiology",
+      "geobiology"
+    ],
+    "uid": "doi:10.5555/synthetic.90000017",
+    "expected_label": "NOT_RELEVANT",
+    "expected_category": "not relevant",
+    "expected_match": null
+  },
+  {
+    "source": "pubmed",
+    "source_id": "90000018",
+    "title": "Gut microbiome alpha-synuclein aggregation signatures in elderly Parkinson's disease patients",
+    "abstract": "We profiled the fecal microbiome of 300 older adults with Parkinson's disease and matched controls and related community composition to enteric alpha-synuclein pathology and motor scores. Depletion of Prevotellaceae and enrichment of Akkermansia tracked disease severity, suggesting a gut-brain axis contribution to neurodegeneration. Although this is gut-microbiome research, it concerns adult neurodegenerative disease rather than infant growth, childhood undernutrition, or complementary-food intervention.",
+    "authors": [
+      "Synthetic A. Author",
+      "Demo B. Coauthor"
+    ],
+    "doi": "10.5555/synthetic.90000018",
+    "url": "https://example.org/paper_18_notrel_parkinsons",
+    "journal": "Movement Disorders",
+    "published": "2026-06-02",
+    "categories": [
+      "microbiome",
+      "neurology"
+    ],
+    "uid": "doi:10.5555/synthetic.90000018",
+    "expected_label": "NOT_RELEVANT",
+    "expected_category": "not relevant",
+    "expected_match": null
+  },
+  {
+    "source": "arxiv",
+    "source_id": "90000019",
+    "title": "A vision transformer for nuclei segmentation in whole-slide histopathology images",
+    "abstract": "We present a vision-transformer architecture for instance segmentation of cell nuclei in gigapixel whole-slide images, combining a hierarchical encoder with a boundary-aware loss. On three public histopathology benchmarks the model improves panoptic quality over convolutional baselines while halving inference cost. The contribution is a computer-vision method for digital pathology and is unrelated to microbiology, nutrition, or host physiology.",
+    "authors": [
+      "Synthetic A. Author",
+      "Demo B. Coauthor"
+    ],
+    "doi": "10.5555/synthetic.90000019",
+    "url": "https://example.org/paper_19_notrel_histopath",
+    "journal": "arxiv",
+    "published": "2026-06-01",
+    "categories": [
+      "computer-vision",
+      "medical-imaging"
+    ],
+    "uid": "doi:10.5555/synthetic.90000019",
+    "expected_label": "NOT_RELEVANT",
+    "expected_category": "not relevant",
+    "expected_match": null
+  },
+  {
+    "source": "biorxiv",
+    "source_id": "90000020",
+    "title": "Nitrogen-fixing rhizosphere microbiome shifts under reduced-tillage maize agriculture",
+    "abstract": "Across a five-year reduced-tillage field trial we tracked the maize rhizosphere microbiome and soil nitrogen cycling. Reduced tillage enriched diazotrophic Bradyrhizobium and raised nifH gene abundance, correlating with lower synthetic fertilizer demand and stable yields. The study addresses agricultural soil microbial ecology and crop productivity, with no connection to human gut microbiota, infant growth, or undernutrition.",
+    "authors": [
+      "Synthetic A. Author",
+      "Demo B. Coauthor"
+    ],
+    "doi": "10.5555/synthetic.90000020",
+    "url": "https://example.org/paper_20_notrel_soil",
+    "journal": "biorxiv",
+    "published": "2026-05-31",
+    "categories": [
+      "soil-microbiology",
+      "agriculture"
+    ],
+    "uid": "doi:10.5555/synthetic.90000020",
+    "expected_label": "NOT_RELEVANT",
+    "expected_category": "not relevant",
+    "expected_match": null
+  }
+]

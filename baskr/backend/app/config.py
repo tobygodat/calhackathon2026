@@ -44,6 +44,9 @@ _load_dotenv()
 class Settings:
     # --- secrets / connections ---
     anthropic_api_key: str | None = os.environ.get("ANTHROPIC_API_KEY")
+    # OpenAI key enables real text-embedding-3-small vectors for RedisVL search.
+    # When None, app/embeddings.py falls back to the local keyless hash embedder.
+    openai_api_key: str | None = os.environ.get("OPENAI_API_KEY")
     redis_url: str = os.environ.get("REDIS_URL", "redis://localhost:6379")
     # Surfaced for completeness (SPEC §11). Paper fetching is delegated to
     # implementations/data_pipeline, which reads NCBI_API_KEY from its own Config.
@@ -52,18 +55,45 @@ class Settings:
     # --- lab / behavior ---
     lab_id: str = os.environ.get("BASKR_LAB_ID", "gut-microbiome-demo")
     relevance_threshold: float = float(os.environ.get("BASKR_RELEVANCE_THRESHOLD", "0.5"))
+    # Cutoff for the consumer's stage-1 vector-search gate (cosine of a paper vs the
+    # lab profile). Kept separate from relevance_threshold (which is the LLM-confidence
+    # cutoff, SPEC §7) because real OpenAI text-embedding cosines for *relevant* papers
+    # run ~0.35–0.60, so reusing 0.5 would drop genuinely on-topic papers at the gate.
+    vector_gate_threshold: float = float(os.environ.get("BASKR_VECTOR_GATE_THRESHOLD", "0.35"))
 
     # --- models ---
-    # Local, keyless embeddings (see app/embeddings.py) — no provider/model id.
+    # Embeddings: real OpenAI text-embedding-3-small when openai_api_key is set,
+    # else the local keyless hash embedder (app/embeddings.py). Both are 1536-dim,
+    # matching the RedisVL papers index, so the two are interchangeable at rest.
+    embed_model: str = os.environ.get("EMBED_MODEL", "text-embedding-3-small")
     embed_dim: int = 1536
-    # TODO(build-time): confirm current recommended claude-* model (SPEC §4) before
-    # hardcoding a default here.
-    reason_model: str | None = os.environ.get("REASON_MODEL")
+    # Reasoning model for the real Anthropic path (app/llm.py). Defaults to the
+    # value documented in .env.example so classification works out of the box when
+    # an API key is present but REASON_MODEL is unset.
+    reason_model: str | None = os.environ.get("REASON_MODEL", "claude-sonnet-4-6")
 
     # --- retrieval / engine knobs ---
     memory_top_k: int = 8          # profile items pulled per classification (SPEC §6)
     active_search_cap: int = 5     # max hits returned by /api/search (SPEC §6)
     active_search_days: int = 7    # PubMed lookback window for active search
+
+    # Opt-in agent-loop step 3 ("search prior work"): when true, classify_paper
+    # embeds the paper and queries the Redis vector index for the top-N similar
+    # prior papers, feeding them into the prompt. OFF by default so the default
+    # classification path is unchanged and needs no Redis vector round-trip.
+    use_vector_priorwork: bool = (
+        os.environ.get("BASKR_USE_VECTOR_PRIORWORK", "").strip().lower()
+        in ("1", "true", "yes", "on")
+    )
+    vector_priorwork_k: int = int(os.environ.get("BASKR_VECTOR_PRIORWORK_K", "5"))
+
+    # --- classification throughput knobs ---
+    # Bounded concurrency for classify_paper fan-out (engine.run_digest / active_search).
+    classify_concurrency: int = int(os.environ.get("BASKR_CLASSIFY_CONCURRENCY", "5"))
+    # Cheap pre-filter ceiling: active_search LLM-classifies at most this many of the
+    # fetched papers (ranked by a keyless vector/lexical signal first), capping cost to
+    # output size instead of fetch size.
+    preclassify_cap: int = int(os.environ.get("BASKR_PRECLASSIFY_CAP", "20"))
 
     # --- redis key map (SPEC §5.5) ---
     paper_key_prefix: str = "baskr:paper:"

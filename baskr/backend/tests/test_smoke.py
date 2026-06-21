@@ -45,7 +45,7 @@ _METRIC_KEYS = {
 
 def test_status_shape(client) -> None:
     """(c) GET /status returns 200 with the documented top-level + sub keys."""
-    resp = client.get("/status")
+    resp = client.get("/api/status")
     assert resp.status_code == 200
     body = resp.json()
 
